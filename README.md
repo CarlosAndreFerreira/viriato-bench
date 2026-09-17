@@ -120,6 +120,12 @@ kill %1
 Custo marginal zero. Corre de noite. Se o Qwen ficar preso a pensar, o
 `TIMEOUT_S` (900 s por omissão) corta.
 
+Cada corrida do `bench.sh` grava um `batch_id` novo em `results.csv` (podes
+nomeá-lo: `BATCH_ID=fase2-run2 SIDES=qwen ./bench.sh`). O `score.py` agrega,
+por omissão, só o batch mais recente por tarefa/lado — uma segunda passagem
+nunca se mistura silenciosamente com a primeira. Usa `--all-batches` se
+quiseres mesmo juntar tudo.
+
 ### Fase 3 — agregar
 
 ```bash

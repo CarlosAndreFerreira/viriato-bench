@@ -5,6 +5,8 @@
 #   SIDES=claude ./bench.sh                       # so o lado Claude (dias antes)
 #   SIDES=qwen TASKS=a1-bugfix K=1 ./bench.sh     # smoke test rapido
 #   AGENT=opencode SIDES=qwen ./bench.sh          # fase 2
+#   BATCH_ID=fase2-run2 SIDES=qwen ./bench.sh     # nomeia o batch (2a+ passagem;
+#                                                  # score.py so agrega o mais recente)
 #
 # Requisitos: o CLI do agente, pytest, timeout (coreutils). jq e opcional.
 
@@ -28,8 +30,15 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 TOOLS="${TOOLS:-Read,Write,Edit,Bash,Glob,Grep}"
 PERM_MODE="${PERM_MODE:-acceptEdits}"  # IDENTICO nos dois lados
 
+# Um id por invocacao do bench.sh. results.csv e append-only e a Fase 2 do
+# README convida a correr o lado qwen "quantas vezes quiseres" - sem isto,
+# uma segunda passagem mistura silenciosamente runs antigas e novas no mesmo
+# denominador do pass@1. Sobrepoe-se para dar nome a um batch (ex: "fase2-2").
+BATCH_ID="${BATCH_ID:-$(date +%Y%m%dT%H%M%S)-$$}"
+
 command -v timeout >/dev/null || { echo "falta timeout (coreutils)"; exit 1; }
 mkdir -p "$RUNS_DIR" "$LOGS_DIR"
+echo "batch: $BATCH_ID"
 
 # Le um campo de topo do JSON do agente. Usa jq se existir, senao python3.
 jget() { # $1 = campo, $2 = ficheiro
@@ -50,7 +59,7 @@ PY
 }
 
 if [[ ! -f "$RESULTS" ]]; then
-  echo "ts,agent,side,task,k,pass,skip,exit_tests,agent_exit,timeout_hit,num_turns,duration_ms,cost_usd,is_error,wall_s" > "$RESULTS"
+  echo "ts,batch_id,agent,side,task,k,pass,skip,exit_tests,agent_exit,timeout_hit,num_turns,duration_ms,cost_usd,is_error,wall_s" > "$RESULTS"
 fi
 
 invoke_agent() {
@@ -131,7 +140,7 @@ run_one() {
   cost=$( jget total_cost_usd "$log")
   err=$(  jget is_error       "$log")
 
-  echo "$(date -Is),$AGENT,$side,$task,$k,$passed,$skipped,$exit_tests,$agent_exit,$timeout_hit,$turns,$dur,$cost,$err,$wall" >> "$RESULTS"
+  echo "$(date -Is),$BATCH_ID,$AGENT,$side,$task,$k,$passed,$skipped,$exit_tests,$agent_exit,$timeout_hit,$turns,$dur,$cost,$err,$wall" >> "$RESULTS"
   if [[ "$timeout_hit" == 1 ]]; then
     echo "    !! TIMEOUT (${TIMEOUT_S}s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=${wall}s"
   elif [[ "$agent_exit" != 0 ]]; then
@@ -152,5 +161,6 @@ for task in $TASKS; do
 done
 
 echo
+echo "batch $BATCH_ID completo"
 echo "resultados crus -> $RESULTS"
-echo "agrega com: python3 score.py"
+echo "agrega com: python3 score.py   (usa so o batch mais recente por omissao)"

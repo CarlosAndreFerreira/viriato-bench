@@ -46,6 +46,9 @@
 <div class="drop">
   Carrega o <code>results.csv</code> gerado pelo <code>bench.sh</code>:
   <input type="file" id="f" accept=".csv">
+  <label style="margin-left:14px;cursor:pointer">
+    <input type="checkbox" id="allBatches"> juntar todos os batches (por omissao usa-se so o mais recente por task/side)
+  </label>
   <div class="sub" style="margin:8px 0 0">Tudo corre no browser. Nao ha chamadas de rede nem chaves de API.</div>
 </div>
 
@@ -67,15 +70,34 @@ function parseCSV(text){
 
 const numOr = (v, d=null) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
 
-function aggregate(rows){
+// results.csv e append-only (bench.sh corre-se varias vezes, ex: Fase 2).
+// Sem isto, uma segunda passagem mistura silenciosamente runs antigas e
+// novas no mesmo pass@1. Por omissao usa-se so o batch_id mais recente por
+// task/side; a checkbox "juntar todos os batches" volta ao comportamento
+// antigo (util para ver a evolucao ao longo do tempo, nunca para citar).
+function aggregate(rows, allBatches){
   const g = new Map();
   for (const r of rows){
     const key = [r.agent||"claude-code", r.task, r.side].join("|");
     if(!g.has(key)) g.set(key, []);
     g.get(key).push(r);
   }
-  return [...g].map(([key, rs]) => {
+  const multiBatch = [];
+  const agg = [...g].map(([key, rs]) => {
     const [agent, task, side] = key.split("|");
+    const batches = [...new Set(rs.map(r => r.batch_id || ""))];
+    if (!allBatches && batches.length > 1){
+      const latestTsByBatch = new Map();
+      for (const r of rs){
+        const b = r.batch_id || "";
+        const t = Date.parse(r.ts) || 0;
+        if (!latestTsByBatch.has(b) || t > latestTsByBatch.get(b)) latestTsByBatch.set(b, t);
+      }
+      const latestBatch = [...latestTsByBatch.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+      const before = rs.length;
+      rs = rs.filter(r => (r.batch_id || "") === latestBatch);
+      multiBatch.push({ task, side, agent, latestBatch, totalBatches: batches.length, dropped: before - rs.length });
+    }
     const scored = rs.filter(r => r.skip !== "1");
     const passes = scored.filter(r => r.pass === "1").length;
     const walls = rs.map(r => numOr(r.wall_s)).filter(v => v !== null);
@@ -91,10 +113,11 @@ function aggregate(rows){
       cost: costs.length ? costs.reduce((a,b)=>a+b,0) : null
     };
   }).sort((a,b) => a.task.localeCompare(b.task) || a.side.localeCompare(b.side));
+  return { agg, multiBatch };
 }
 
 function render(rows){
-  const agg = aggregate(rows);
+  const { agg, multiBatch } = aggregate(rows, $("#allBatches").checked);
 
   const bySide = {};
   for (const r of agg){
@@ -136,17 +159,26 @@ function render(rows){
       Uma run isolada teria mentido nestas. E isto que justifica o k&ge;3.` : "",
     skipped.length ? `<b>Skips:</b> ${skipped.map(r=>`${r.task}/${r.side}`).join(", ")} —
       verificador indisponivel. Nao contam como pass.` : "",
+    multiBatch.length ? `<b>Batches:</b> ${multiBatch.map(m=>
+      `${m.task}/${m.side} (batch ativo "${m.latestBatch}", ${m.totalBatches} batches no total, ${m.dropped} runs mais antigas ignoradas)`
+      ).join(", ")}. Marca "juntar todos os batches" para veres tudo.` : "",
     `<b>Leitura:</b> esta tabela mede correcao, nao qualidade percebida.`
   ].filter(Boolean).join("<br>");
 }
+
+let lastRows = null;
 
 $("#f").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
   const fr = new FileReader();
-  fr.onload = () => { try { render(parseCSV(fr.result)); }
+  fr.onload = () => { try { lastRows = parseCSV(fr.result); render(lastRows); }
                       catch(err){ $("#note").textContent = "CSV invalido: " + err.message; } };
   fr.readAsText(file);
+});
+
+$("#allBatches").addEventListener("change", () => {
+  if (lastRows) render(lastRows);
 });
 </script>
 </body>

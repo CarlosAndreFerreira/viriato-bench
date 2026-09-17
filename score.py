@@ -11,6 +11,7 @@ import csv
 import json
 import statistics
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -23,10 +24,20 @@ def num(v):
         return None
 
 
+def parse_ts(v):
+    try:
+        return datetime.fromisoformat(v)
+    except (TypeError, ValueError):
+        return datetime.min
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default=str(ROOT / "results.csv"))
     ap.add_argument("--json", help="escrever sumario JSON para o dashboard")
+    ap.add_argument("--all-batches", action="store_true",
+                     help="junta todos os batches de bench.sh no mesmo denominador "
+                          "(por omissao usa-se so o batch mais recente por task/side)")
     args = ap.parse_args()
 
     path = Path(args.results)
@@ -40,8 +51,19 @@ def main() -> None:
     for r in rows:
         grouped[(r.get("agent", "claude-code"), r["task"], r["side"])].append(r)
 
+    # results.csv e append-only: linhas antigas (sem batch_id) contam como um
+    # unico batch partilhado "" para nao rebentar, mas correr bench.sh outra
+    # vez sobre um results.csv antigo vai imediatamente separa-las.
+    multi_batch_groups = []
     out = []
     for (agent, task, side), rs in sorted(grouped.items()):
+        batches = sorted({r.get("batch_id", "") for r in rs})
+        if not args.all_batches and len(batches) > 1:
+            latest_ts = {b: max(parse_ts(r["ts"]) for r in rs if r.get("batch_id", "") == b) for b in batches}
+            latest_batch = max(latest_ts, key=latest_ts.get)
+            dropped = len(rs) - sum(1 for r in rs if r.get("batch_id", "") == latest_batch)
+            multi_batch_groups.append((agent, task, side, latest_batch, batches, dropped))
+            rs = [r for r in rs if r.get("batch_id", "") == latest_batch]
         scored = [r for r in rs if r.get("skip", "0") != "1"]
         skips = len(rs) - len(scored)
         k = len(scored)
@@ -57,6 +79,7 @@ def main() -> None:
             "agent": agent,
             "task": task,
             "side": side,
+            "batches": sorted({r.get("batch_id", "") for r in rs}),
             "k": k,
             "skips": skips,
             "passes": f"{passes}/{k}" if k else "0/0",
@@ -86,6 +109,13 @@ def main() -> None:
         print("\n> Com runs em SKIP (verificador indisponivel). Estas NAO contam como pass:")
         for r in skipped:
             print(f">   - {r['task']} / {r['side']}: {r['skips']} skips")
+
+    if multi_batch_groups:
+        print("\n> Mais do que um batch de bench.sh encontrado para o mesmo task/side."
+              " A usar so o mais recente (--all-batches para juntar tudo):")
+        for agent, task, side, latest_batch, batches, dropped in multi_batch_groups:
+            print(f">   - {task} / {side} / {agent}: batch ativo {latest_batch!r}"
+                  f" ({len(batches)} batches no total, {dropped} runs mais antigas ignoradas)")
 
     harness_fails = [r for r in out if r["agent_fails"]]
     if harness_fails:
