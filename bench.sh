@@ -50,7 +50,7 @@ PY
 }
 
 if [[ ! -f "$RESULTS" ]]; then
-  echo "ts,agent,side,task,k,pass,skip,exit_tests,num_turns,duration_ms,cost_usd,is_error,wall_s" > "$RESULTS"
+  echo "ts,agent,side,task,k,pass,skip,exit_tests,agent_exit,timeout_hit,num_turns,duration_ms,cost_usd,is_error,wall_s" > "$RESULTS"
 fi
 
 invoke_agent() {
@@ -102,7 +102,15 @@ run_one() {
   echo "==> $AGENT / $side / $task / run $k"
 
   # Subshell: as env vars do lado qwen nunca escapam para o lado claude.
+  # $? tem de ser capturado logo a seguir - timeout (124), falha de auth e
+  # quota esgotada saiam todos daqui, e sem isto ficavam indistinguiveis de
+  # "o modelo respondeu e respondeu mal" (pass=0 por o verificador falhar).
+  local agent_exit
   ( cd "$rundir" && invoke_agent "$side" "$prompt" ) > "$log" 2> "$log.stderr"
+  agent_exit=$?
+
+  local timeout_hit=0
+  [[ "$agent_exit" -eq 124 ]] && timeout_hit=1
 
   t1=$(date +%s); wall=$((t1 - t0))
 
@@ -123,8 +131,12 @@ run_one() {
   cost=$( jget total_cost_usd "$log")
   err=$(  jget is_error       "$log")
 
-  echo "$(date -Is),$AGENT,$side,$task,$k,$passed,$skipped,$exit_tests,$turns,$dur,$cost,$err,$wall" >> "$RESULTS"
-  if [[ "$skipped" == 1 ]]; then
+  echo "$(date -Is),$AGENT,$side,$task,$k,$passed,$skipped,$exit_tests,$agent_exit,$timeout_hit,$turns,$dur,$cost,$err,$wall" >> "$RESULTS"
+  if [[ "$timeout_hit" == 1 ]]; then
+    echo "    !! TIMEOUT (${TIMEOUT_S}s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=${wall}s"
+  elif [[ "$agent_exit" != 0 ]]; then
+    echo "    !! agente saiu com exit=$agent_exit (crash/auth/quota?) antes do verificador correr  wall=${wall}s"
+  elif [[ "$skipped" == 1 ]]; then
     echo "    SKIP (verificador indisponivel)  wall=${wall}s"
   else
     echo "    pass=$passed  turns=$turns  wall=${wall}s  cost=$cost"

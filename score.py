@@ -49,6 +49,10 @@ def main() -> None:
         walls = [w for w in (num(r["wall_s"]) for r in rs) if w is not None]
         turns = [t for t in (num(r["num_turns"]) for r in rs) if t is not None]
         costs = [c for c in (num(r["cost_usd"]) for r in rs) if c is not None]
+        # agent_exit/timeout_hit existem em runs recentes (bench.sh); results.csv
+        # antigos nao tem a coluna - get() com default "0" mantem isso silencioso.
+        timeouts = sum(1 for r in rs if r.get("timeout_hit", "0") == "1")
+        agent_fails = sum(1 for r in rs if r.get("agent_exit", "0") not in ("0", ""))
         out.append({
             "agent": agent,
             "task": task,
@@ -60,6 +64,8 @@ def main() -> None:
             "wall_median_s": round(statistics.median(walls)) if walls else None,
             "turns_median": round(statistics.median(turns), 1) if turns else None,
             "cost_usd_total": round(sum(costs), 4) if costs else None,
+            "timeouts": timeouts,
+            "agent_fails": agent_fails,
         })
 
     cols = ["agent", "task", "side", "k", "skips", "passes", "pass_at_1",
@@ -80,6 +86,15 @@ def main() -> None:
         print("\n> Com runs em SKIP (verificador indisponivel). Estas NAO contam como pass:")
         for r in skipped:
             print(f">   - {r['task']} / {r['side']}: {r['skips']} skips")
+
+    harness_fails = [r for r in out if r["agent_fails"]]
+    if harness_fails:
+        print("\n> Com falhas do agente antes do verificador correr (timeout, crash, auth, quota)."
+              " Contam para pass@1 como fail, mas NAO sao 'o modelo respondeu errado':")
+        for r in harness_fails:
+            bits = [f"{r['timeouts']} timeout" if r["timeouts"] else None,
+                    f"{r['agent_fails'] - r['timeouts']} outro exit!=0" if r["agent_fails"] > r["timeouts"] else None]
+            print(f">   - {r['task']} / {r['side']} / {r['agent']}: " + ", ".join(b for b in bits if b))
 
     if args.json:
         p = Path(args.json)
