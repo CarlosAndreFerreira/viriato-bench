@@ -1,6 +1,6 @@
 # Protocolo — Qwen3.8-27B local vs Claude, mesma harness
 
-**Pré-registado em:** _(preenche a data ANTES da primeira run)_
+**Pré-registado em:** 2026-09-17
 **Regra:** nada neste ficheiro muda depois da primeira run. Se mudares, a corrida
 recomeça do zero. É isto que separa um benchmark de uma anedota.
 
@@ -20,20 +20,20 @@ interessa a quem está na sala.
 
 | Parâmetro | Valor | Preencher |
 |---|---|---|
-| Máquina | ACEMAGIC M1A PRO+, Ryzen AI MAX+ 395, 128 GB UMA | |
-| SO / kernel | Ubuntu 26.04, kernel ... | |
-| Claude Code version | `claude --version` | |
-| Modelo Claude | `--model ...` (fixa explicitamente) | |
-| Ollama version | `ollama --version` | |
-| Modelo local | `qwen3.8` | |
-| Quant | Q4_K_M (NÃO Q8 — ver §6) | |
-| Context | >= 32768 | |
-| `reasoning_effort` | `medium` (fixo, registado em todas as runs) | |
-| Temperatura (lado Qwen) | fixa | |
+| Máquina | ACEMAGIC M1A PRO+, Ryzen AI MAX+ 395, 128 GB UMA | confirmado: `lscpu` → "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S"; `/proc/meminfo` → 128650716 kB (~123 GiB) |
+| SO / kernel | Ubuntu 26.04, kernel ... | Ubuntu 26.04.1 LTS (resolute), kernel 7.0.0-31-generic |
+| Claude Code version | `claude --version` | 2.1.274 (Claude Code) |
+| Modelo Claude | `--model ...` (fixa explicitamente) | **por decidir.** `CLAUDE_MODEL` não tem default em `bench.sh` — sem o exportar, a Fase 1 corre com o default do CLI, não fixo. Escolhe e escreve aqui antes da Fase 0. |
+| Ollama version | `ollama --version` | 0.33.3 |
+| Modelo local | `qwen3.8` | `qwen3.8:latest` (id `22130167c4c2`, 17 GB) — confirmado com `ollama list` |
+| Quant | Q4_K_M (NÃO Q8 — ver §6) | Q4_K_M — confirmado com `ollama show qwen3.8` |
+| Context | >= 32768 | 262144 nativo do modelo (`ollama show qwen3.8`). **Nota:** `bench.sh` não passa `num_ctx` explícito; corre com o default do Ollama, não com um valor fixado pelo harness. |
+| `reasoning_effort` | `medium` (fixo, registado em todas as runs) | **não aplicado.** `bench.sh` não passa nenhuma flag de reasoning effort ao `claude` CLI — confirmar se existe uma flag para fixar isto antes de declarar "medium" em qualquer slide, ou remover a linha. |
+| Temperatura (lado Qwen) | fixa | 1 (default do model file, `ollama show qwen3.8` → Parameters.temperature). Não é definida pelo `bench.sh`; é o que o Ollama aplica por omissão. |
 | Temperatura / seed (lado Claude) | **não controlável via CLI** | n/a |
-| k (runs por tarefa por lado) | 3 | |
-| Timeout por run | 900 s | |
-| Permissões | idênticas nos dois lados | |
+| k (runs por tarefa por lado) | 3 | confirmado: `K="${K:-3}"` em `bench.sh` |
+| Timeout por run | 900 s | confirmado: `TIMEOUT_S="${TIMEOUT_S:-900}"` em `bench.sh` |
+| Permissões | idênticas nos dois lados | confirmado: `PERM_MODE="${PERM_MODE:-acceptEdits}"` aplicado igualmente a `side=claude` e `side=qwen` em `bench.sh` |
 
 ## 3. Tarefas
 
@@ -48,8 +48,11 @@ Cada tarefa tem: `PROMPT.md` (enviado verbatim aos dois lados), `fixture/`
 | `a1-bugfix` | debugging agêntico | 7 testes pytest | Curta — é esta que corre ao vivo. Bug de duas camadas: clamp + drift. |
 
 **Removidos do plano original:** `c1-flatten-json` (tarefa canónica, quase de
-certeza no training data dos dois lados) e o hexágono/1 bola no prompt original
-(viral desde início de 2025, memorizado). O V1 mantém a física e muda os
+certeza no training data dos dois lados), o hexágono/1 bola no prompt original
+(viral desde início de 2025, memorizado), e uma tarefa `site` narrativa
+(build livre para o voto cego de estética, sem checker) que nunca chegou a
+ser escrita — a camada de "Artefacto" descrita numa versão anterior deste
+documento não existe nesta corrida. O V1 mantém a física e muda os
 parâmetros.
 
 **Não usar o pelicano SVG.** O autor do teste diz que a correlação com
@@ -71,11 +74,15 @@ Agregação: **pass@1 sobre k=3**, não "passou/não passou" de uma run.
 
 1. **Evidência** (§3–4) — corre dias antes, off-stage. É o que sustenta as
    afirmações.
-2. **Artefacto** (`site`) — os dois builds projetados lado a lado, sem
-   identificação, audiência vota. **O voto mede preferência, não capacidade.**
-   Diz isto em voz alta antes de votarem.
-3. **Palco** — só `a1-task-manager`, ao vivo, tmux com dois panes. Vídeo de
+2. **Palco** — só `a1-bugfix`, ao vivo, tmux com dois panes. Vídeo de
    backup gravado.
+
+Uma terceira camada, "Artefacto" (voto cego de estética sobre uma tarefa
+`site` narrativa e não pontuada), estava numa versão anterior deste
+documento mas essa tarefa nunca foi escrita — ver §3. Não existe nesta
+corrida; se quiseres reintroduzi-la, é preciso escrever `tasks/site/` (sem
+`score.sh`, o próprio ponto é não ser verificada por código) antes de
+voltar a citá-la aqui.
 
 ## 6. Decisões contra-intuitivas (justificadas)
 
@@ -95,8 +102,9 @@ Agregação: **pass@1 sobre k=3**, não "passou/não passou" de uma run.
   comparação mais justa disponível — não é neutra, e favorece o lado Claude.
 - Sem controlo de seed/temperatura do lado Claude. k=3 é a única defesa.
 - HTML/CSS é o domínio mais saturado de training data que existe. Um modelo
-  pequeno parece desproporcionalmente bom a fazer sites. A tarefa `site` é
-  narrativa, e por isso não entra no número final.
+  pequeno parece desproporcionalmente bom a fazer sites — vale a pena dizer
+  isto em voz alta quando `v1-polygon`/`v2-solar` correrem bem, já que ambas
+  entregam um `index.html` autónomo.
 - Quota de subscrição: o lado Claude corre dias antes. Bater no limite na
   manhã da talk acaba com a talk.
 
