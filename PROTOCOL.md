@@ -4,6 +4,19 @@
 **Regra:** nada neste ficheiro muda depois da primeira run. Se mudares, a corrida
 recomeça do zero. É isto que separa um benchmark de uma anedota.
 
+**Nota de reinício (2026-09-17):** a Fase 0 (smoke test, `a1-bugfix`/`qwen`)
+correu com `TIMEOUT_S=900s` e bateu no timeout — `agent_exit=124` — apesar de
+a correção em `schedule.py` estar certa (ancorou `occurrences()` a
+`rec.start` em vez de encadear a partir da última ocorrência, o fix de
+duas camadas que a tarefa exige; 7/7 testes passaram). O processo só não
+devolveu o resumo JSON a tempo. Isto confirma que os 900s pré-registados
+eram curtos face à própria estimativa do README §4 (20–50 min/tarefa).
+Essa é exatamente a condição da regra acima: `TIMEOUT_S` subiu para 3000s
+(50 min, o limite superior já documentado, não um número novo), e
+`runs/`, `logs/` e `results.csv` dessa corrida foram apagados antes de
+qualquer Fase 1/2 a sério. Fica registado aqui em vez de reescrito em
+silêncio.
+
 ---
 
 ## 1. Pergunta
@@ -32,7 +45,7 @@ interessa a quem está na sala.
 | Temperatura (lado Qwen) | fixa | 1 (default do model file, `ollama show qwen3.8` → Parameters.temperature). Não é definida pelo `bench.sh`; é o que o Ollama aplica por omissão. |
 | Temperatura / seed (lado Claude) | **não controlável via CLI** | n/a |
 | k (runs por tarefa por lado) | 3 | confirmado: `K="${K:-3}"` em `bench.sh` |
-| Timeout por run | 900 s | confirmado: `TIMEOUT_S="${TIMEOUT_S:-900}"` em `bench.sh` |
+| Timeout por run | 3000 s (50 min) | confirmado: `TIMEOUT_S="${TIMEOUT_S:-3000}"` em `bench.sh`. Subido de 900s após a Fase 0 — ver nota no topo do documento. |
 | Permissões | idênticas nos dois lados | confirmado: `PERM_MODE="${PERM_MODE:-acceptEdits}"` aplicado igualmente a `side=claude` e a todos os `side` locais em `bench.sh` |
 
 ### 2.1 Modelos locais adicionais

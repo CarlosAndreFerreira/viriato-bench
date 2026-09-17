@@ -20,7 +20,7 @@ LOGS_DIR="$ROOT/logs"
 RESULTS="$ROOT/results.csv"
 
 K="${K:-3}"
-TIMEOUT_S="${TIMEOUT_S:-900}"
+TIMEOUT_S="${TIMEOUT_S:-3000}"
 TASKS="${TASKS:-v1-polygon v2-solar v3-viriato a1-bugfix}"
 SIDES="${SIDES:-claude qwen}"
 AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | prime-agent
@@ -155,6 +155,14 @@ run_one() {
   dur=$(  jget duration_ms    "$log")
   cost=$( jget total_cost_usd "$log")
   err=$(  jget is_error       "$log")
+
+  # O CLI reporta um total_cost_usd para QUALQUER modelo, incluindo um local
+  # nao reconhecido - com costBasis "unknown" no JSON completo (nao exposto
+  # por --output-format json), calculado por uma tarifa de fallback que nao
+  # se aplica a um modelo a correr de graca no teu proprio hardware. Gravar
+  # isso ao pe da letra contradiz "custo marginal zero" (README, Fase 2). O
+  # custo real do lado local e o que o monitor.py mede (energia), nao isto.
+  [[ "$side" != "claude" ]] && cost=0
 
   echo "$(date -Is),$BATCH_ID,$AGENT,$side,$task,$k,$passed,$skipped,$exit_tests,$agent_exit,$timeout_hit,$turns,$dur,$cost,$err,$wall" >> "$RESULTS"
   if [[ "$timeout_hit" == 1 ]]; then

@@ -1,0 +1,2 @@
+ts,batch_id,agent,side,task,k,pass,skip,exit_tests,agent_exit,timeout_hit,num_turns,duration_ms,cost_usd,is_error,wall_s
+2026-09-17T16:11:37+01:00,20260917T160406-433465,claude-code,qwen,a1-bugfix,1,1,0,0,0,0,11,450417,0,NA,451

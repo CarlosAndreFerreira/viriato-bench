@@ -92,7 +92,7 @@ as ocorrências à data de início. Uma correção superficial não passa.
 
 ## 3. Plano de execução
 
-### Fase 0 — smoke test (15 minutos)
+### Fase 0 — smoke test
 
 ```bash
 chmod +x bench.sh tasks/*/score.sh
@@ -100,10 +100,15 @@ K=1 TASKS=a1-bugfix SIDES=qwen ./bench.sh
 python3 score.py
 ```
 
-Se isto não correr limpo, nada do resto vale. Confirma que:
+Pode demorar bem mais que 15 minutos num modelo verboso — conta com o
+`TIMEOUT_S` inteiro (3000 s por omissão, §2) como pior caso. Confirma:
 - o `runs/claude-code-qwen-a1-bugfix-1/` foi criado e tem `schedule.py`;
-- o `logs/*.json` tem JSON válido;
-- o `logs/*.score` mostra o pytest.
+- o `logs/*.score` mostra o pytest (isto é o que importa; um `TIMEOUT`
+  ainda pode ter deixado o ficheiro corrigido no disco antes de o processo
+  ser morto — vê o `.score`, não só o exit code, antes de assumir que falhou);
+- o `logs/*.json` tem JSON válido **só quando o processo termina dentro do
+  timeout**. Um `!! TIMEOUT` no terminal produz um `.json` vazio de propósito
+  — não é bug, é o processo a ser morto a meio antes de escrever o resumo.
 
 ### Fase 1 — lado Claude, **dias antes** (não na manhã da talk)
 
@@ -124,7 +129,7 @@ kill %1
 ```
 
 Custo marginal zero. Corre de noite. Se um modelo ficar preso a pensar, o
-`TIMEOUT_S` (900 s por omissão) corta.
+`TIMEOUT_S` (3000 s / 50 min por omissão, ver PROTOCOL.md §2) corta.
 
 **`qwen3.8-flash-next` corre à parte, nunca junto dos outros:**
 
