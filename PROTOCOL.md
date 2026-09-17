@@ -1,4 +1,4 @@
-# Protocolo — Qwen3.8-27B local vs Claude, mesma harness
+# Protocolo — modelos locais (Qwen3.8, Qwen3-Coder, Qwen3.8-Flash-Next) vs Claude, mesma harness
 
 **Pré-registado em:** 2026-09-17
 **Regra:** nada neste ficheiro muda depois da primeira run. Se mudares, a corrida
@@ -33,7 +33,19 @@ interessa a quem está na sala.
 | Temperatura / seed (lado Claude) | **não controlável via CLI** | n/a |
 | k (runs por tarefa por lado) | 3 | confirmado: `K="${K:-3}"` em `bench.sh` |
 | Timeout por run | 900 s | confirmado: `TIMEOUT_S="${TIMEOUT_S:-900}"` em `bench.sh` |
-| Permissões | idênticas nos dois lados | confirmado: `PERM_MODE="${PERM_MODE:-acceptEdits}"` aplicado igualmente a `side=claude` e `side=qwen` em `bench.sh` |
+| Permissões | idênticas nos dois lados | confirmado: `PERM_MODE="${PERM_MODE:-acceptEdits}"` aplicado igualmente a `side=claude` e a todos os `side` locais em `bench.sh` |
+
+### 2.1 Modelos locais adicionais
+
+`bench.sh` mapeia cada `side` local a uma tag do Ollama (ver `invoke_agent`
+em `bench.sh`); `qwen3.8` (side `qwen`) continua a ser o modelo local
+principal — os dois abaixo são comparações adicionais, não substituições.
+Especificações confirmadas com `ollama show <tag>`:
+
+| `side` | Tag Ollama | Arquitetura | Parâmetros | Quant | Context | Nota |
+|---|---|---|---|---|---|---|
+| `qwen3-coder` | `qwen3-coder:30b` | qwen3moe | 30.5B | Q4_K_M | 262144 | Mesma política de quant que `qwen3.8`; especializado em código, relevante para 3 das 4 tarefas. |
+| `qwen3.8-flash-next` | `qwen3.8-flash-next:latest` | qwen4exp | 176.9B | **IQ2_S** | 262144 | **Foge à política Q4_K_M do §6 de propósito** — ~94 GB em disco contra ~123 GiB de RAM utilizável (ver Máquina, §2). Corre-se à parte, `K` baixo primeiro (ver README §Fase 2). Resultado é evidência offline; não citar como comparável a par com `qwen3.8`/`qwen3-coder` sem dizer isto em voz alta. |
 
 ## 3. Tarefas
 
@@ -89,6 +101,11 @@ voltar a citá-la aqui.
 - **Q4_K_M e não Q8_0.** O Strix Halo é bandwidth-bound. Q8 corta o throughput
   quase a metade sobre um baseline já modesto, e este modelo é muito verboso.
   Numa demo ao vivo isso é a diferença entre 8 e 20 minutos de espera.
+- **Exceção deliberada: `qwen3.8-flash-next` corre a IQ2_S, não Q4_K_M.** É a
+  única run fora da política acima — 176.9B parâmetros só cabem
+  confortavelmente na RAM disponível a essa quant. Por isso corre-se e
+  reporta-se à parte (ver §2.1 e §7), nunca como comparação direta ao mesmo
+  nível de `qwen3.8`/`qwen3-coder`.
 - **`reasoning_effort: medium` fixo.** Consequência: **não podes citar os
   números de índice públicos**, que são medidos em `xhigh`. Escolheste
   velocidade; assume-o no slide.
@@ -107,6 +124,11 @@ voltar a citá-la aqui.
   entregam um `index.html` autónomo.
 - Quota de subscrição: o lado Claude corre dias antes. Bater no limite na
   manhã da talk acaba com a talk.
+- `qwen3.8-flash-next` não é comparável a par com os outros dois locais: quant
+  muito mais agressiva (IQ2_S vs Q4_K_M), perto do limite de RAM da máquina, e
+  tempo por run desconhecido até correr. Trata os números dele como uma nota
+  à parte ("o que acontece se fores maior mas mais comprimido"), não como
+  mais um ponto na mesma reta que `qwen3.8`/`qwen3-coder`.
 
 ## 8. Publicação
 

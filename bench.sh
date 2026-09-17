@@ -7,6 +7,7 @@
 #   AGENT=opencode SIDES=qwen ./bench.sh          # fase 2
 #   BATCH_ID=fase2-run2 SIDES=qwen ./bench.sh     # nomeia o batch (2a+ passagem;
 #                                                  # score.py so agrega o mais recente)
+#   SIDES="qwen qwen3-coder qwen3.8-flash-next" K=3 ./bench.sh   # varios modelos locais
 #
 # Requisitos: o CLI do agente, pytest, timeout (coreutils). jq e opcional.
 
@@ -25,7 +26,15 @@ SIDES="${SIDES:-claude qwen}"
 AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | prime-agent
 
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"       # fixa explicitamente, ex: claude-opus-5
+
+# Um "side" local por modelo a comparar. Cada um mapeia para uma tag do
+# Ollama; sobrepoe-se com a env var respetiva se quiseres testar outra tag.
+# Um side desconhecido (fora deste mapa e diferente de "claude") e tratado
+# como a propria tag do Ollama - nao e preciso editar o script para testar
+# um modelo novo, so acrescentar o nome a SIDES.
 QWEN_MODEL="${QWEN_MODEL:-qwen3.8}"
+QWEN_CODER_MODEL="${QWEN_CODER_MODEL:-qwen3-coder:30b}"
+QWEN_FLASH_MODEL="${QWEN_FLASH_MODEL:-qwen3.8-flash-next:latest}"
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 TOOLS="${TOOLS:-Read,Write,Edit,Bash,Glob,Grep}"
 PERM_MODE="${PERM_MODE:-acceptEdits}"  # IDENTICO nos dois lados
@@ -67,21 +76,28 @@ invoke_agent() {
   local side="$1" prompt="$2"
   case "$AGENT" in
     claude-code)
-      if [[ "$side" == "qwen" ]]; then
-        export ANTHROPIC_BASE_URL="$OLLAMA_URL"
-        export ANTHROPIC_AUTH_TOKEN="ollama"
-        export ANTHROPIC_API_KEY=""
-        timeout "$TIMEOUT_S" claude -p "$prompt" --model "$QWEN_MODEL" \
-          --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
-      else
+      if [[ "$side" == "claude" ]]; then
         local mf=()
         [[ -n "$CLAUDE_MODEL" ]] && mf=(--model "$CLAUDE_MODEL")
         timeout "$TIMEOUT_S" claude -p "$prompt" "${mf[@]}" \
           --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
+      else
+        local model
+        case "$side" in
+          qwen)               model="$QWEN_MODEL" ;;
+          qwen3-coder)        model="$QWEN_CODER_MODEL" ;;
+          qwen3.8-flash-next) model="$QWEN_FLASH_MODEL" ;;
+          *)                  model="$side" ;;
+        esac
+        export ANTHROPIC_BASE_URL="$OLLAMA_URL"
+        export ANTHROPIC_AUTH_TOKEN="ollama"
+        export ANTHROPIC_API_KEY=""
+        timeout "$TIMEOUT_S" claude -p "$prompt" --model "$model" \
+          --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
       fi
       ;;
     opencode)
-      [[ "$side" == "qwen" ]] && export OPENAI_BASE_URL="$OLLAMA_URL/v1"
+      [[ "$side" != "claude" ]] && export OPENAI_BASE_URL="$OLLAMA_URL/v1"
       timeout "$TIMEOUT_S" opencode run "$prompt"
       ;;
     pi|prime-agent)

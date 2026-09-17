@@ -1,7 +1,11 @@
 # Lusitano Bench
 
-Comparação Qwen3.8-27B local (Strix Halo) contra Claude, **na mesma harness**,
-com correção verificada por código e estética votada em separado.
+Comparação de modelos locais (Strix Halo) contra Claude, **na mesma harness**,
+com correção verificada por código e estética votada em separado. Modelo
+local principal: Qwen3.8-27B. Adicionalmente testados: `qwen3-coder:30b`
+(especializado em código) e `qwen3.8-flash-next` (176.9B, quant IQ2_S — ver
+aviso em §4 e §6/§7 do `PROTOCOL.md`, não é comparável a par com os outros
+por correr fora da política de quant Q4_K_M).
 
 A tese não é "o 27B é tão bom como o Claude". É: **que fração do trabalho
 migra para local, a que latência, a que custo, e onde é que parte.**
@@ -13,8 +17,10 @@ migra para local, a que latência, a que custo, e onde é que parte.**
 ```bash
 sudo apt install -y jq coreutils
 python3 -m pip install --break-system-packages pytest
-ollama pull qwen3.8            # confirma o nome exato com: ollama list
-claude --version               # Claude Code, autenticado com a subscrição
+ollama pull qwen3.8                    # confirma o nome exato com: ollama list
+ollama pull qwen3-coder:30b            # opcional, so se fores testar SIDES=qwen3-coder
+ollama pull qwen3.8-flash-next:latest  # opcional, 94GB — ver aviso em §4
+claude --version                       # Claude Code, autenticado com a subscrição
 ```
 
 **Playwright** (só para V1 e V2):
@@ -113,12 +119,26 @@ Corre isto com antecedência e guarda os logs.
 
 ```bash
 python3 monitor.py --out power.csv &
-SIDES=qwen K=3 ./bench.sh
+SIDES="qwen qwen3-coder" K=3 ./bench.sh
 kill %1
 ```
 
-Custo marginal zero. Corre de noite. Se o Qwen ficar preso a pensar, o
+Custo marginal zero. Corre de noite. Se um modelo ficar preso a pensar, o
 `TIMEOUT_S` (900 s por omissão) corta.
+
+**`qwen3.8-flash-next` corre à parte, nunca junto dos outros:**
+
+```bash
+python3 monitor.py --out power.csv &
+SIDES=qwen3.8-flash-next K=1 TIMEOUT_S=1800 ./bench.sh
+kill %1
+```
+
+176.9B parâmetros a IQ2_S, ~94 GB em disco contra ~123 GiB de RAM utilizável
+— perto do limite, e a quant foge de propósito à política Q4_K_M do §6 do
+`PROTOCOL.md`. Começa com `K=1` e um `TIMEOUT_S` maior antes de confiar num
+`K=3` de longa duração; se o sistema começar a fazer swap, mata a run — um
+número obtido a fazer swap não serve para nada no slide.
 
 Cada corrida do `bench.sh` grava um `batch_id` novo em `results.csv` (podes
 nomeá-lo: `BATCH_ID=fase2-run2 SIDES=qwen ./bench.sh`). O `score.py` agrega,
@@ -170,6 +190,14 @@ Grava vídeo de backup das duas runs antes do dia.
 No Strix Halo, com um modelo verboso a 15–25 tok/s, conta **20–50 minutos por
 tarefa**. Quatro tarefas × 3 runs × 2 lados ≈ 8 a 20 horas de máquina, e o lado
 Claude é uma fração pequena disso. Planeia noites, não tardes.
+
+Cada `SIDES` local adicional multiplica isto quase linearmente — `qwen` +
+`qwen3-coder` já são ~16 a 40 horas de máquina, não 8 a 20. `qwen3-coder:30b`
+é maior que o `qwen3.8` pinado mas com a mesma política de quant (Q4_K_M),
+por isso conta com tok/s pior, não melhor. `qwen3.8-flash-next` (176.9B,
+IQ2_S) não entra nesta conta — corre-se à parte, com `K` baixo primeiro (ver
+§Fase 2), porque tanto o tempo por run como o risco de swap são
+desconhecidos até correres.
 
 Se alargares ao Terminal-Bench (89 tarefas), uma passagem completa são 45 a 90
 horas. Nesse caso usa um subconjunto fixo de 20–30 tarefas com seed publicada e
