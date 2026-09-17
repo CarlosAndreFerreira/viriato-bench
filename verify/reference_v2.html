@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--
+  Implementacao de referencia do V2.
+  NAO faz parte da tarefa e NAO pode ser copiada para tasks/v2-solar/fixture/.
+  Existe so para provar que tasks/v2-solar/verify.py e passavel.
+-->
+<html lang="pt"><head><meta charset="utf-8"><title>V2 ref</title>
+<style>html,body{margin:0;background:#07090f;color:#e7e9ee;display:grid;place-items:center;height:100%;
+font:13px ui-sans-serif,system-ui,sans-serif}#hud{position:fixed;top:10px;left:12px;opacity:.8}</style>
+</head><body>
+<div id="hud"></div><canvas id="c" width="820" height="820"></canvas>
+<script>
+const BODIES = [
+  { name: "Mercury", auRadius: 0.387, periodDays: 87.97,  color: "#b0a8a0", size: 3 },
+  { name: "Venus",   auRadius: 0.723, periodDays: 224.70, color: "#e0c98a", size: 5 },
+  { name: "Earth",   auRadius: 1.000, periodDays: 365.25, color: "#5b8dd9", size: 6 },
+  { name: "Mars",    auRadius: 1.524, periodDays: 686.98, color: "#c1502e", size: 4 }
+];
+const E = BODIES[2], M = BODIES[3];
+
+// Transferencia de Hohmann Terra -> Marte
+const aT = (E.auRadius + M.auRadius) / 2;
+const OUTBOUND = 0.5 * Math.pow(aT, 1.5) * 365.25;                   // ~259 d
+const PHASE = 180 - (360 / M.periodDays) * OUTBOUND;                 // ~44 graus
+const STAY = 455, RETURN = OUTBOUND, TOTAL = OUTBOUND + STAY + RETURN;
+
+const PX = 300 / M.auRadius, CX = 410, CY = 410;
+let missionDay = 0, speed = 2.2;
+
+const ang = (b, day) => 2 * Math.PI * day / b.periodDays;
+const pos = (b, day) => ({ x: b.auRadius * Math.cos(ang(b, day)),
+                           y: b.auRadius * Math.sin(ang(b, day)) });
+
+// Marte comeca PHASE graus a frente da Terra no dia 0 (partida imediata)
+const MARS_OFFSET = (PHASE / 360) * M.periodDays;
+const marsPos = day => pos(M, day + MARS_OFFSET);
+
+// Arco de transferencia: raio interpola r1->r2, anomalia varre 180 graus.
+function transfer(day, t0, dur, fromFn, toFn) {
+  const f = Math.min(Math.max((day - t0) / dur, 0), 1);
+  const a = fromFn(t0), b = toFn(t0 + dur);
+  const r0 = Math.hypot(a.x, a.y), r1 = Math.hypot(b.x, b.y);
+  const r = r0 + (r1 - r0) * f;
+  const th = Math.atan2(a.y, a.x) + Math.PI * f;
+  return { x: r * Math.cos(th), y: r * Math.sin(th) };
+}
+
+function shipAU(day) {
+  if (day <= OUTBOUND) return transfer(day, 0, OUTBOUND, d => pos(E, d), d => marsPos(d));
+  if (day <= OUTBOUND + STAY) return marsPos(day);
+  const d0 = OUTBOUND + STAY;
+  return transfer(day, d0, RETURN, d => marsPos(d), d => pos(E, d));
+}
+
+const ctx = document.getElementById("c").getContext("2d");
+const hud = document.getElementById("hud");
+let frames = 0, fpsSum = 0, lastT = performance.now();
+
+function draw() {
+  ctx.fillStyle = "#07090f"; ctx.fillRect(0, 0, 820, 820);
+  ctx.fillStyle = "#ffd76a"; ctx.beginPath(); ctx.arc(CX, CY, 11, 0, 7); ctx.fill();
+  for (const b of BODIES) {
+    ctx.strokeStyle = "#1e2430"; ctx.beginPath();
+    ctx.arc(CX, CY, b.auRadius * PX, 0, 7); ctx.stroke();
+    const p = b === M ? marsPos(missionDay) : pos(b, missionDay);
+    const x = CX + p.x * PX, y = CY + p.y * PX;
+    ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(x, y, b.size, 0, 7); ctx.fill();
+    ctx.fillStyle = "#98a0b0"; ctx.fillText(b.name, x + 9, y - 8);
+  }
+  const s = shipAU(missionDay);
+  ctx.fillStyle = "#fff"; ctx.beginPath();
+  ctx.arc(CX + s.x * PX, CY + s.y * PX, 3, 0, 7); ctx.fill();
+}
+
+function loop(now) {
+  const dt = (now - lastT) / 1000; lastT = now;
+  const fps = dt > 0 ? 1 / dt : 0; frames++; fpsSum += fps;
+  missionDay = (missionDay + speed) % TOTAL;
+  draw();
+  hud.textContent = `dia ${missionDay.toFixed(0)} / ${TOTAL.toFixed(0)}  |  ` +
+    `FPS ${fps.toFixed(0)} (media ${(fpsSum / frames).toFixed(0)})`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+window.__bench = {
+  bodies: BODIES.map(({ name, auRadius, periodDays }) => ({
+    name, auRadius, periodDays,
+    angleDeg0: name === "Mars" ? PHASE : 0
+  })),
+  mission: {
+    departurePhaseAngleDeg: PHASE,
+    outboundDays: OUTBOUND,
+    stayDays: STAY,
+    returnDays: RETURN,
+    totalDays: TOTAL
+  },
+  setMissionDay(day) { missionDay = day; },
+  getState() { return { missionDay, shipAU: shipAU(missionDay) }; }
+};
+</script></body></html>

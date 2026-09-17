@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<!--
+  Implementacao de referencia do V1.
+  NAO faz parte da tarefa e NAO pode ser copiada para tasks/v1-polygon/fixture/.
+  Existe so para provar que tasks/v1-polygon/verify.py e passavel.
+-->
+<html lang="pt"><head><meta charset="utf-8"><title>V1 ref</title>
+<style>html,body{margin:0;background:#0f1115;display:grid;place-items:center;height:100%}
+canvas{background:#12151c}</style></head><body>
+<canvas id="c" width="760" height="760"></canvas>
+<script>
+const N = 9, R = 260, PERIOD = 7, BALL_R = 14, NBALLS = 13, REST = 0.82;
+const CX = 380, CY = 380, G = 900, AIR = 0.02, MU = 0.12;
+const APO = R * Math.cos(Math.PI / N);
+const OMEGA = 2 * Math.PI / PERIOD;      // horario no referencial do canvas
+
+let angle = 0, t = 0;
+const balls = [];
+for (let i = 0; i < NBALLS; i++) {
+  const ring = i === 0 ? 0 : 1 + Math.floor((i - 1) / 6);
+  const k = i === 0 ? 0 : (i - 1) % 6;
+  const rad = ring * 34, th = k * Math.PI / 3 + ring * 0.4;
+  balls.push({ id: i, x: CX + rad * Math.cos(th), y: CY + rad * Math.sin(th),
+               vx: 0, vy: 0, r: BALL_R, spin: 0 });
+}
+
+function normals(a) {
+  const out = [];
+  for (let i = 0; i < N; i++) {
+    const th = a + 2 * Math.PI * i / N + Math.PI / N;
+    out.push([Math.cos(th), Math.sin(th)]);
+  }
+  return out;
+}
+
+function collideWalls(b, ns) {
+  for (const [nx, ny] of ns) {
+    const d = (b.x - CX) * nx + (b.y - CY) * ny;
+    const pen = d - (APO - b.r);
+    if (pen <= 0) continue;
+    b.x -= nx * pen * 1.001;
+    b.y -= ny * pen * 1.001;
+    // velocidade da parede no ponto de contacto (corpo rigido em rotacao)
+    const wx = -OMEGA * (b.y - CY), wy = OMEGA * (b.x - CX);
+    let rvx = b.vx - wx, rvy = b.vy - wy;
+    const vn = rvx * nx + rvy * ny;
+    if (vn > 0) {
+      rvx -= (1 + REST) * vn * nx;
+      rvy -= (1 + REST) * vn * ny;
+      const tx = -ny, ty = nx;
+      const vt = rvx * tx + rvy * ty;
+      rvx -= MU * vt * tx; rvy -= MU * vt * ty;
+      b.spin += vt * 0.004;
+      b.vx = rvx + wx; b.vy = rvy + wy;
+    }
+  }
+}
+
+function collideBalls(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dist = Math.hypot(dx, dy) || 1e-6;
+  const pen = a.r + b.r - dist;
+  if (pen <= 0) return;
+  const nx = dx / dist, ny = dy / dist;
+  const c = pen / 2 * 1.001;
+  a.x -= nx * c; a.y -= ny * c; b.x += nx * c; b.y += ny * c;
+  const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+  const vn = rvx * nx + rvy * ny;
+  if (vn > 0) return;
+  const j = -(1 + REST) * vn / 2;
+  a.vx -= j * nx; a.vy -= j * ny; b.vx += j * nx; b.vy += j * ny;
+  a.spin -= j * 0.002; b.spin += j * 0.002;
+}
+
+function substep(h) {
+  angle += OMEGA * h;
+  t += h;
+  const ns = normals(angle);
+  for (const b of balls) {
+    b.vy += G * h;
+    b.vx *= (1 - AIR * h); b.vy *= (1 - AIR * h);
+    b.x += b.vx * h; b.y += b.vy * h;
+    b.spin += b.vx * h * 0.02;
+  }
+  for (let i = 0; i < balls.length; i++)
+    for (let j = i + 1; j < balls.length; j++) collideBalls(balls[i], balls[j]);
+  for (const b of balls) collideWalls(b, ns);
+  // segunda passagem: garante contencao apos correcao bola-bola
+  for (const b of balls) collideWalls(b, ns);
+}
+
+function step(dt) {
+  const SUB = 16, h = Math.min(dt, 0.1) / SUB;
+  for (let i = 0; i < SUB; i++) substep(h);
+}
+
+const ctx = document.getElementById("c").getContext("2d");
+function draw() {
+  ctx.clearRect(0, 0, 760, 760);
+  ctx.fillStyle = "#12151c"; ctx.fillRect(0, 0, 760, 760);
+  ctx.strokeStyle = "#7aa2f7"; ctx.lineWidth = 3; ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const th = angle + 2 * Math.PI * i / N;
+    const x = CX + R * Math.cos(th), y = CY + R * Math.sin(th);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath(); ctx.stroke();
+  for (const b of balls) {
+    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.spin);
+    ctx.fillStyle = `hsl(${b.id * 27},70%,60%)`;
+    ctx.beginPath(); ctx.arc(0, 0, b.r, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = "#0f1115"; ctx.font = "bold 13px sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(String(b.id), 0, 0); ctx.restore();
+  }
+}
+
+let last = performance.now(), auto = true;
+function loop(now) {
+  if (auto) step(Math.min((now - last) / 1000, 0.05));
+  last = now; draw(); requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+window.__bench = {
+  step(dt) { auto = false; step(dt); draw(); },
+  getState() {
+    return {
+      t, poly: { n: N, radius: R, cx: CX, cy: CY, angle, periodSec: PERIOD },
+      balls: balls.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r, vx: b.vx, vy: b.vy }))
+    };
+  }
+};
+</script></body></html>

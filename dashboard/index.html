@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lusitano Bench</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --line:#272c36; --fg:#e7e9ee;
+    --muted:#98a0b0; --pass:#3fb950; --fail:#f85149; --skip:#d29922; --accent:#7aa2f7;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f7f8fa; --panel:#fff; --line:#e2e5eb; --fg:#12141a; --muted:#5c6474;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--fg);
+    font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .drop{border:1px dashed var(--line);border-radius:10px;padding:18px;
+    background:var(--panel);margin-bottom:20px}
+  .drop input{color:inherit}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-bottom:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card .n{font-size:26px;font-weight:600}
+  .card .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  tr:last-child td{border-bottom:none}
+  .bar{height:7px;border-radius:4px;background:var(--line);width:110px;overflow:hidden;display:inline-block;vertical-align:middle}
+  .bar i{display:block;height:100%;background:var(--pass)}
+  .tag{font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+  .pass{color:var(--pass)} .fail{color:var(--fail)} .skip{color:var(--skip)}
+  .note{margin-top:18px;color:var(--muted);font-size:13px;border-left:2px solid var(--accent);padding-left:12px}
+  code{background:var(--line);padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>Lusitano Bench</h1>
+<div class="sub">pass@1 por tarefa, lado e harness. Estetica nao entra aqui — isso e o voto cego.</div>
+
+<div class="drop">
+  Carrega o <code>results.csv</code> gerado pelo <code>bench.sh</code>:
+  <input type="file" id="f" accept=".csv">
+  <div class="sub" style="margin:8px 0 0">Tudo corre no browser. Nao ha chamadas de rede nem chaves de API.</div>
+</div>
+
+<div class="grid" id="cards"></div>
+<div class="wrap"><table id="t"><thead></thead><tbody></tbody></table></div>
+<div class="note" id="note"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  const head = lines.shift().split(",");
+  return lines.filter(Boolean).map(l => {
+    const cells = l.split(",");
+    return Object.fromEntries(head.map((h,i) => [h.trim(), (cells[i]||"").trim()]));
+  });
+}
+
+const numOr = (v, d=null) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+
+function aggregate(rows){
+  const g = new Map();
+  for (const r of rows){
+    const key = [r.agent||"claude-code", r.task, r.side].join("|");
+    if(!g.has(key)) g.set(key, []);
+    g.get(key).push(r);
+  }
+  return [...g].map(([key, rs]) => {
+    const [agent, task, side] = key.split("|");
+    const scored = rs.filter(r => r.skip !== "1");
+    const passes = scored.filter(r => r.pass === "1").length;
+    const walls = rs.map(r => numOr(r.wall_s)).filter(v => v !== null);
+    const costs = rs.map(r => numOr(r.cost_usd)).filter(v => v !== null);
+    walls.sort((a,b)=>a-b);
+    return {
+      agent, task, side,
+      k: scored.length,
+      skips: rs.length - scored.length,
+      passes,
+      rate: scored.length ? passes/scored.length : null,
+      wall: walls.length ? walls[Math.floor(walls.length/2)] : null,
+      cost: costs.length ? costs.reduce((a,b)=>a+b,0) : null
+    };
+  }).sort((a,b) => a.task.localeCompare(b.task) || a.side.localeCompare(b.side));
+}
+
+function render(rows){
+  const agg = aggregate(rows);
+
+  const bySide = {};
+  for (const r of agg){
+    bySide[r.side] ??= {p:0, k:0, wall:0, n:0, cost:0};
+    bySide[r.side].p += r.passes; bySide[r.side].k += r.k;
+    if (r.wall !== null){ bySide[r.side].wall += r.wall; bySide[r.side].n++; }
+    if (r.cost !== null) bySide[r.side].cost += r.cost;
+  }
+  $("#cards").innerHTML = Object.entries(bySide).map(([side, s]) => `
+    <div class="card">
+      <div class="l">${side}</div>
+      <div class="n">${s.k ? Math.round(100*s.p/s.k) : 0}%</div>
+      <div class="sub" style="margin:0">${s.p}/${s.k} runs &middot;
+        mediana ${s.n ? Math.round(s.wall/s.n) : "?"}s &middot;
+        ${s.cost ? "$"+s.cost.toFixed(2) : "custo marginal 0"}</div>
+    </div>`).join("");
+
+  const cols = ["agent","task","side","pass@1","runs","mediana (s)","custo est."];
+  $("#t thead").innerHTML = "<tr>" + cols.map(c=>`<th>${c}</th>`).join("") + "</tr>";
+  $("#t tbody").innerHTML = agg.map(r => {
+    const pct = r.rate === null ? "—" : Math.round(r.rate*100) + "%";
+    const cls = r.rate === 1 ? "pass" : r.rate === 0 ? "fail" : "skip";
+    const bar = r.rate === null ? "" :
+      `<span class="bar"><i style="width:${r.rate*100}%"></i></span> `;
+    return `<tr>
+      <td><span class="tag">${r.agent}</span></td>
+      <td>${r.task}</td><td>${r.side}</td>
+      <td>${bar}<span class="${cls}">${pct}</span></td>
+      <td>${r.passes}/${r.k}${r.skips ? ` <span class="skip">+${r.skips} skip</span>` : ""}</td>
+      <td>${r.wall ?? "—"}</td>
+      <td>${r.cost ? "$"+r.cost.toFixed(4) : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  const flaky = agg.filter(r => r.rate !== null && r.rate > 0 && r.rate < 1);
+  const skipped = agg.filter(r => r.skips > 0);
+  $("#note").innerHTML = [
+    flaky.length ? `<b>Instaveis:</b> ${flaky.map(r=>`${r.task}/${r.side} (${r.passes}/${r.k})`).join(", ")}.
+      Uma run isolada teria mentido nestas. E isto que justifica o k&ge;3.` : "",
+    skipped.length ? `<b>Skips:</b> ${skipped.map(r=>`${r.task}/${r.side}`).join(", ")} —
+      verificador indisponivel. Nao contam como pass.` : "",
+    `<b>Leitura:</b> esta tabela mede correcao, nao qualidade percebida.`
+  ].filter(Boolean).join("<br>");
+}
+
+$("#f").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => { try { render(parseCSV(fr.result)); }
+                      catch(err){ $("#note").textContent = "CSV invalido: " + err.message; } };
+  fr.readAsText(file);
+});
+</script>
+</body>
+</html>

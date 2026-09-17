@@ -1,0 +1,6 @@
+# Nucleo (V3 + A1): so pytest.
+pytest>=8.0
+
+# Opcional (V1 + V2, verificacao headless).
+# Se falhar no Python 3.14 do sistema, ver README seccao 0.
+playwright>=1.44

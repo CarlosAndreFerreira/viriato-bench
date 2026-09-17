@@ -1,0 +1,8 @@
+runs/
+logs/
+results.csv
+power.csv
+dashboard/summary.json
+__pycache__/
+.venv/
+_frames/
