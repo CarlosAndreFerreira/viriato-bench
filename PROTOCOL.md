@@ -23,7 +23,7 @@ interessa a quem está na sala.
 | Máquina | ACEMAGIC M1A PRO+, Ryzen AI MAX+ 395, 128 GB UMA | confirmado: `lscpu` → "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S"; `/proc/meminfo` → 128650716 kB (~123 GiB) |
 | SO / kernel | Ubuntu 26.04, kernel ... | Ubuntu 26.04.1 LTS (resolute), kernel 7.0.0-31-generic |
 | Claude Code version | `claude --version` | 2.1.274 (Claude Code) |
-| Modelo Claude | `--model ...` (fixa explicitamente) | **por decidir.** `CLAUDE_MODEL` não tem default em `bench.sh` — sem o exportar, a Fase 1 corre com o default do CLI, não fixo. Escolhe e escreve aqui antes da Fase 0. |
+| Modelo Claude | `claude-opus-5` (fixa explicitamente) | decidido: `claude-opus-5` — é o exemplo já usado no README §Fase 1, e é o modelo de topo da Anthropic no momento do pré-registo, o que dá o enquadramento mais forte para "quanto é que o local aproxima do frontier". `CLAUDE_MODEL` não tem default em `bench.sh`; **exporta `CLAUDE_MODEL=claude-opus-5` antes de correr a Fase 1** — sem isso corre-se com o default do CLI, não com o valor fixado aqui. |
 | Ollama version | `ollama --version` | 0.33.3 |
 | Modelo local | `qwen3.8` | `qwen3.8:latest` (id `22130167c4c2`, 17 GB) — confirmado com `ollama list` |
 | Quant | Q4_K_M (NÃO Q8 — ver §6) | Q4_K_M — confirmado com `ollama show qwen3.8` |
