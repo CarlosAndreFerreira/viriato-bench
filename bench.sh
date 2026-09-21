@@ -5,6 +5,8 @@
 #   SIDES=claude ./bench.sh                       # so o lado Claude (dias antes)
 #   SIDES=qwen TASKS=a1-bugfix K=1 ./bench.sh     # smoke test rapido
 #   AGENT=opencode SIDES=qwen ./bench.sh          # fase 2
+#   AGENT=pi SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh   # mesmo modelo, harness pi
+#   AGENT=prime-agent SIDES=qwen K=1 ./bench.sh             # idem, harness prime-agent
 #   BATCH_ID=fase2-run2 SIDES=qwen ./bench.sh     # nomeia o batch (2a+ passagem;
 #                                                  # score.py so agrega o mais recente)
 #   SIDES="qwen qwen3-coder qwen3.8-flash-next" K=3 ./bench.sh   # varios modelos locais
@@ -24,6 +26,13 @@ TIMEOUT_S="${TIMEOUT_S:-3000}"
 TASKS="${TASKS:-v1-polygon v2-solar v3-viriato a1-bugfix}"
 SIDES="${SIDES:-claude qwen}"
 AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | prime-agent
+# So AGENT=pi|prime-agent: vai como reasoning_effort para o Ollama
+# (supportsReasoningEffort=true em harness/*/models.json). Medido no Ollama
+# 0.33.3 com o qwen3.8: funciona como liga/desliga - "off"/none desliga o
+# raciocinio, low/medium/high/xhigh/max dao todos o mesmo, e sem o parametro
+# o modelo ja raciocina. Nao aumenta o raciocinio face ao default; torna-o
+# explicito e registavel. O qwen3-coder nao tem modo de raciocinio.
+PI_THINKING="${PI_THINKING:-medium}"
 
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"       # fixa explicitamente, ex: claude-opus-5
 
@@ -52,7 +61,7 @@ echo "batch: $BATCH_ID"
 # Le um campo de topo do JSON do agente. Usa jq se existir, senao python3.
 jget() { # $1 = campo, $2 = ficheiro
   if command -v jq >/dev/null 2>&1; then
-    jq -r --arg k "$1" '.[$k] // "NA"' "$2" 2>/dev/null || echo NA
+    jq -r --arg k "$1" 'if .[$k] == null then "NA" else .[$k] end' "$2" 2>/dev/null || echo NA
   else
     python3 - "$1" "$2" <<'PY' 2>/dev/null || echo NA
 import json, sys
@@ -71,24 +80,41 @@ if [[ ! -f "$RESULTS" ]]; then
   echo "ts,batch_id,agent,side,task,k,pass,skip,exit_tests,agent_exit,timeout_hit,num_turns,duration_ms,cost_usd,is_error,wall_s" > "$RESULTS"
 fi
 
+is_claude_side() {
+  [[ "$1" == "claude" || "$1" == claude-* || "$1" == haiku* || "$1" == sonnet* || "$1" == opus* ]]
+}
+
+claude_model_for() {
+  case "$1" in
+    claude) echo "${CLAUDE_MODEL:-}" ;;
+    haiku)  echo "claude-haiku-4-5" ;;
+    sonnet) echo "claude-sonnet-4-6" ;;
+    *)      echo "$1" ;;
+  esac
+}
+
+local_model_for() {
+  case "$1" in
+    qwen)               echo "$QWEN_MODEL" ;;
+    qwen3-coder)        echo "$QWEN_CODER_MODEL" ;;
+    qwen3.8-flash-next) echo "$QWEN_FLASH_MODEL" ;;
+    *)                  echo "$1" ;;
+  esac
+}
+
 invoke_agent() {
   # $1 = side, $2 = prompt. cwd ja e o run dir.
   local side="$1" prompt="$2"
   case "$AGENT" in
     claude-code)
-      if [[ "$side" == "claude" ]]; then
+      if is_claude_side "$side"; then
+        local model; model="$(claude_model_for "$side")"
         local mf=()
-        [[ -n "$CLAUDE_MODEL" ]] && mf=(--model "$CLAUDE_MODEL")
+        [[ -n "$model" ]] && mf=(--model "$model")
         timeout "$TIMEOUT_S" claude -p "$prompt" "${mf[@]}" \
           --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
       else
-        local model
-        case "$side" in
-          qwen)               model="$QWEN_MODEL" ;;
-          qwen3-coder)        model="$QWEN_CODER_MODEL" ;;
-          qwen3.8-flash-next) model="$QWEN_FLASH_MODEL" ;;
-          *)                  model="$side" ;;
-        esac
+        local model; model="$(local_model_for "$side")"
         export ANTHROPIC_BASE_URL="$OLLAMA_URL"
         export ANTHROPIC_AUTH_TOKEN="ollama"
         export ANTHROPIC_API_KEY=""
@@ -101,8 +127,51 @@ invoke_agent() {
       timeout "$TIMEOUT_S" opencode run "$prompt"
       ;;
     pi|prime-agent)
-      echo "{\"note\":\"$AGENT ainda nao ligado; ver README, Fase 2\"}"
-      return 1
+      # O prime-agent e um fork do pi: mesmas flags, mesmo stream JSON. Muda o
+      # binario, a env var da config e as tools - o prime-agent so expoe uma,
+      # `ipython` (le/edita ficheiros e corre comandos a partir de um kernel
+      # persistente, e pode lancar sub-agentes com o mesmo modelo).
+      #
+      # Config propria do bench (harness/<agente>), nunca a do utilizador:
+      # modelos Ollama sem samplingParams (fica o default do Ollama, como no
+      # lado claude-code) e sem extensoes/skills/AGENTS.md/templates.
+      # Assimetria a declarar: nenhum dos dois tem modo de permissoes, corre
+      # tudo o que o modelo pede (o acceptEdits do claude-code ja deixa Bash).
+      # O prime-agent corre SEM --autonomous-gate de proposito: um gate com o
+      # verificador mostrava ao agente o criterio que os outros nao veem.
+      local bin cfg_var tools extra=()
+      if [[ "$AGENT" == pi ]]; then
+        bin=pi; cfg_var=PI_CODING_AGENT_DIR; tools=read,bash,edit,write,grep,find,ls
+        extra=(--no-approve)           # o prime-agent nao tem esta flag
+      else
+        bin=prime-agent; cfg_var=PRIME_AGENT_CODING_AGENT_DIR; tools=ipython
+        extra=(--offline)
+      fi
+      local provider model
+      if is_claude_side "$side"; then
+        [[ -n "${ANTHROPIC_API_KEY:-}" ]] || {
+          echo "{\"is_error\":true,\"error\":\"$AGENT + lado claude precisa de ANTHROPIC_API_KEY (paga por token, fora da quota da subscricao)\"}"
+          return 1
+        }
+        provider=anthropic
+        model="$(claude_model_for "$side")"
+        [[ -n "$model" ]] || { echo '{"is_error":true,"error":"fixa CLAUDE_MODEL"}'; return 1; }
+      else
+        provider=ollama
+        model="$(local_model_for "$side")"
+        [[ "$model" == *:* ]] || model="$model:latest"   # casa pelo id exato do models.json
+      fi
+      local events="$PI_EVENTS_FILE" t0 rc
+      t0=$(( $(date +%s%N) / 1000000 ))
+      env "$cfg_var=$ROOT/harness/$AGENT" PI_OFFLINE=1 PI_TELEMETRY=0 PRIME_AGENT_TELEMETRY=0 \
+        timeout "$TIMEOUT_S" "$bin" -p "$prompt" --mode json \
+          --provider "$provider" --model "$model" --thinking "$PI_THINKING" \
+          --tools "$tools" \
+          --no-session --no-extensions --no-skills --no-prompt-templates \
+          --no-context-files "${extra[@]}" > "$events"
+      rc=$?
+      python3 "$ROOT/harness/pi_summary.py" "$events" "$(( $(date +%s%N) / 1000000 - t0 ))" "$rc" "$AGENT"
+      return "$rc"
       ;;
     *)
       echo "{\"error\":\"AGENT desconhecido: $AGENT\"}"; return 1 ;;
@@ -120,6 +189,9 @@ run_one() {
   rm -rf "$rundir"
   cp -r "$TASKS_DIR/$task/fixture" "$rundir"
   rm -f "$rundir/.keep"
+  # Caches de corridas anteriores no fixture (ex: .pytest_cache/lastfailed
+  # lista os testes que falham) dariam ao agente uma pista que o prompt nao da.
+  find "$rundir" \( -name __pycache__ -o -name .pytest_cache \) -prune -exec rm -rf {} +
 
   local prompt; prompt="$(cat "$prompt_file")"
   local t0 t1 wall
@@ -131,7 +203,8 @@ run_one() {
   # quota esgotada saiam todos daqui, e sem isto ficavam indistinguiveis de
   # "o modelo respondeu e respondeu mal" (pass=0 por o verificador falhar).
   local agent_exit
-  ( cd "$rundir" && invoke_agent "$side" "$prompt" ) > "$log" 2> "$log.stderr"
+  rm -f "$log.events.jsonl"
+  ( cd "$rundir" && PI_EVENTS_FILE="$log.events.jsonl" invoke_agent "$side" "$prompt" ) > "$log" 2> "$log.stderr"
   agent_exit=$?
 
   local timeout_hit=0
@@ -162,7 +235,7 @@ run_one() {
   # se aplica a um modelo a correr de graca no teu proprio hardware. Gravar
   # isso ao pe da letra contradiz "custo marginal zero" (README, Fase 2). O
   # custo real do lado local e o que o monitor.py mede (energia), nao isto.
-  [[ "$side" != "claude" ]] && cost=0
+  is_claude_side "$side" || cost=0
 
   echo "$(date -Is),$BATCH_ID,$AGENT,$side,$task,$k,$passed,$skipped,$exit_tests,$agent_exit,$timeout_hit,$turns,$dur,$cost,$err,$wall" >> "$RESULTS"
   if [[ "$timeout_hit" == 1 ]]; then

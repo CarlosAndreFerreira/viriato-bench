@@ -213,9 +213,37 @@ e nunca corridas são uma talk que não acontece.
 
 ## 5. Fase 2 — outros harnesses
 
-O `bench.sh` aceita `AGENT=opencode`. Para OpenCode, Pi e Prime Agent a sério,
-**não escrevas runner próprio** — usa o Harbor, que é a framework oficial do
-Terminal-Bench e corre agentes arbitrários sobre os mesmos datasets:
+O `bench.sh` corre as quatro tarefas deste repo com `AGENT=pi` e
+`AGENT=prime-agent` (o Prime Agent é um fork do pi, mesmo CLI e mesmo stream
+JSON):
+
+```bash
+AGENT=pi          SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh
+AGENT=prime-agent SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh
+```
+
+- Config própria em `harness/pi/` e `harness/prime-agent/` — nunca o `~/.pi`
+  ou `~/.prime` do utilizador. Modelos Ollama sem `samplingParams`, para ficar
+  a temperatura por omissão do Ollama, como no lado claude-code.
+- Sem extensões, skills, AGENTS.md nem templates: o harness nu.
+- `PI_THINKING` (omissão `medium`) vai como `reasoning_effort` para o Ollama.
+  Com o qwen3.8 é liga/desliga — `off` desliga, qualquer outro nível dá o
+  mesmo, e sem o parâmetro o modelo já raciocina.
+- O Prime Agent corre **sem** `--autonomous-gate`: um gate com o verificador
+  mostrava ao agente o critério que os outros harnesses não veem.
+- Nenhum dos dois tem modo de permissões. O `ipython` do Prime Agent corre com
+  as permissões do utilizador — ver a nota de sandbox abaixo.
+- O lado `claude` com estes harnesses precisa de `ANTHROPIC_API_KEY` e é pago
+  por token, fora da quota da subscrição.
+- Os eventos crus ficam em `logs/*.events.jsonl`; `harness/pi_summary.py`
+  resume-os nos mesmos campos do `--output-format json` do Claude Code.
+
+O ramo `AGENT=opencode` ainda não está pronto para medir (sem provider Ollama
+configurado, sem `--format json`, sem modelo no lado claude).
+
+Para o Terminal-Bench e harnesses que não estão aqui, **não escrevas runner
+próprio** — usa o Harbor, que é a framework oficial do Terminal-Bench e corre
+agentes arbitrários sobre os mesmos datasets:
 
 ```bash
 uv tool install harbor
