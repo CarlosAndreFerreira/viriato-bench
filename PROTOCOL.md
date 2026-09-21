@@ -60,6 +60,48 @@ Especificações confirmadas com `ollama show <tag>`:
 | `qwen3-coder` | `qwen3-coder:30b` | qwen3moe | 30.5B | Q4_K_M | 262144 | Mesma política de quant que `qwen3.8`; especializado em código, relevante para 3 das 4 tarefas. |
 | `qwen3.8-flash-next` | `qwen3.8-flash-next:latest` | qwen4exp | 176.9B | **IQ2_S** | 262144 | **Foge à política Q4_K_M do §6 de propósito** — ~94 GB em disco contra ~123 GiB de RAM utilizável (ver Máquina, §2). Corre-se à parte, `K` baixo primeiro (ver README §Fase 2). Resultado é evidência offline; não citar como comparável a par com `qwen3.8`/`qwen3-coder` sem dizer isto em voz alta. |
 
+### 2.2 Amostragem do lado local (nota de 2026-09-22)
+
+**Quem define a amostragem.** Nenhum harness envia `temperature`, `top_k`
+ou `top_p` ao Ollama. Verificado a 2026-09-22 capturando os pedidos com um
+servidor falso: o claude-code envia só `max_tokens: 32000` e
+`thinking: {type: adaptive}`, e o pi só `reasoning_effort`. Por isso, em
+qualquer `AGENT`, a amostragem é a do Modelfile da tag Ollama:
+
+| Tag | temperature | top_k | top_p | outros |
+|---|---|---|---|---|
+| `qwen3.8:latest` | 1 | 20 | 0.95 | — |
+| `qwen3-coder:30b` | 0.7 | 20 | 0.8 | repeat_penalty 1.05 |
+| `qwen3.8-flash-next:latest` | **0.2** | 40 | 0.95 | — |
+
+**Assimetria já presente nos dados.** O `qwen3.8-flash-next:latest` corre a
+temperatura 0.2 desde antes das suas runs; o `qwen3.8` corre a 1. Isto não
+estava registado. Todas as runs do flash-next até esta data (incluindo o
+pass do `v3-viriato`) confundem "modelo maior" com "temperatura mais baixa".
+Não se refazem — declaram-se (ver §7).
+
+**Braços adicionais, não substituições.** A configuração fixa do §2
+(`qwen3.8` com o Modelfile de origem) **não muda**, e nenhuma run anterior é
+invalidada. Os ajustes de amostragem correm como tags derivadas, cada uma um
+`side` próprio no `bench.sh`, com Modelfile versionado em `harness/ollama/`:
+
+| `side` / tag | Base | Muda face à base | Hipótese |
+|---|---|---|---|
+| `qwen3.8-t02` | `qwen3.8:latest` | temperature 1 → 0.2 | Menos variância ajuda código. Risco: nos Qwen com raciocínio, temperatura baixa tende a produzir repetição e ciclos de pensamento sem fim — o modo de falha já observado. |
+| `qwen3.8-pp15` | `qwen3.8:latest` | presence_penalty 0 → 1.5 | Cortar os ciclos de raciocínio sem mexer na temperatura. |
+| `qwen3-coder-t02` | `qwen3-coder:30b` | temperature 0.7 → 0.2 | Modelo sem raciocínio: temperatura baixa sem o risco de ciclos. |
+
+As tags derivadas partilham os pesos da base; só muda o Modelfile. O lado
+Claude não é afetado por nada disto e não se refaz.
+
+**Contexto da decisão.** No `v1-polygon` com `AGENT=pi` e `PI_THINKING=high`
+(batch `pi-high-v1v2`), o `qwen3.8` passou mais de 30 min num único turno de
+raciocínio (~78 mil caracteres) sem chamar nenhuma ferramenta. É consistente
+com as pastas de run vazias do lado claude-code nos v1/v2: o modelo não chega
+a escrever. `reasoning_effort` no Ollama 0.33.3 com o qwen3.8 é só
+liga/desliga (medido: `none` desliga, os níveis dão o mesmo, sem parâmetro já
+raciocina), por isso não é a alavanca para isto.
+
 ## 3. Tarefas
 
 Cada tarefa tem: `PROMPT.md` (enviado verbatim aos dois lados), `fixture/`
@@ -137,6 +179,10 @@ voltar a citá-la aqui.
   entregam um `index.html` autónomo.
 - Quota de subscrição: o lado Claude corre dias antes. Bater no limite na
   manhã da talk acaba com a talk.
+- Amostragem diferente entre os locais: `qwen3.8` a temperatura 1,
+  `qwen3-coder` a 0.7, `qwen3.8-flash-next` a 0.2 (ver §2.2). Qualquer
+  diferença entre o flash-next e o `qwen3.8` mistura tamanho, quant e
+  temperatura — não se atribui só ao tamanho.
 - `qwen3.8-flash-next` não é comparável a par com os outros dois locais: quant
   muito mais agressiva (IQ2_S vs Q4_K_M), perto do limite de RAM da máquina, e
   tempo por run desconhecido até correr. Trata os números dele como uma nota
