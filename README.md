@@ -238,6 +238,31 @@ AGENT=prime-agent SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh
 - Os eventos crus ficam em `logs/*.events.jsonl`; `harness/pi_summary.py`
   resume-os nos mesmos campos do `--output-format json` do Claude Code.
 
+### `AGENT=pi-sol` — pi + SoL-Pi (NVIDIA)
+
+O [SoL-Pi](https://github.com/NVlabs/SoL-Pi) é uma extensão do pi que corta
+tokens (o paper reporta 45–49% menos tráfego com a mesma taxa de sucesso, medido
+só com Opus 5 e GPT-5.6 Sol). `pi-sol` é **o mesmo pi global** mais a extensão,
+por isso a comparação com `AGENT=pi` isola o efeito da extensão:
+
+```bash
+harness/get-sol-pi.sh      # clona o SoL-Pi no commit fixado e corre a suite deles
+AGENT=pi-sol SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh
+```
+
+- Os quatro mecanismos ligados, como no paper: Action Fusion (`edit`/`write`
+  ganham `then_run`), ObservationPack (`obs_recall`), Evidence-Preserving
+  Reducer e Online Context Compact (`update_plan`).
+- O redutor usa **por omissão um modelo remoto** (`openai-codex/gpt-5.6-luna`).
+  O `bench.sh` gera um `sol-pi.json` por run que o fixa ao mesmo modelo do
+  side. Sem isso, uma run "local" chamaria o GPT.
+- O redutor e a compactação fazem chamadas extra ao mesmo modelo local. Contam
+  no tempo de parede — é o custo real do mecanismo neste hardware.
+- O SoL-Pi exige sessão persistente: a sessão e os artefactos ficam em
+  `logs/*.events.jsonl.sessions/`, fora do run dir.
+- O SoL-Pi é testado contra o pi 0.85.1 e declara compatibilidade com o
+  0.84.2 (o pinado aqui). Carregamento e ferramentas confirmados no 0.84.2.
+
 O ramo `AGENT=opencode` ainda não está pronto para medir (sem provider Ollama
 configurado, sem `--format json`, sem modelo no lado claude).
 

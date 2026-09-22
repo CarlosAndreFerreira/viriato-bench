@@ -1,4 +1,0 @@
-[2026-09-21T22:23:41.481Z] supervisor: Prime Agent daemon supervisor 9f6fdcb1-18d8-4b1a-93a2-be751021e58a listening on /tmp/prime-agent-1000/daemon.sock
-[2026-09-21T22:23:41.772Z] supervisor: Session worker a0b984322cb6 stderr: Prime Agent daemon listening on /tmp/prime-agent-1000/worker-34e619e47b8b-a0b984322cb6.sock
-[2026-09-21T22:26:25.891Z] supervisor: Session worker a0b984322cb6 stderr: shutdown command received over socket; 1 active session(s) will be closed
-[2026-09-21T22:26:25.892Z] supervisor: Session worker a0b984322cb6 stderr: shutting down (exit 0); closing 1 active session(s)

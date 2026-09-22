@@ -7,6 +7,7 @@
 #   AGENT=opencode SIDES=qwen ./bench.sh          # fase 2
 #   AGENT=pi SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh   # mesmo modelo, harness pi
 #   AGENT=prime-agent SIDES=qwen K=1 ./bench.sh             # idem, harness prime-agent
+#   AGENT=pi-sol SIDES=qwen K=1 ./bench.sh                  # pi + extensao SoL-Pi (NVIDIA)
 #   BATCH_ID=fase2-run2 SIDES=qwen ./bench.sh     # nomeia o batch (2a+ passagem;
 #                                                  # score.py so agrega o mais recente)
 #   SIDES="qwen qwen3-coder qwen3.8-flash-next" K=3 ./bench.sh   # varios modelos locais
@@ -25,8 +26,8 @@ K="${K:-3}"
 TIMEOUT_S="${TIMEOUT_S:-3000}"
 TASKS="${TASKS:-v1-polygon v2-solar v3-viriato a1-bugfix}"
 SIDES="${SIDES:-claude qwen}"
-AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | prime-agent
-# So AGENT=pi|prime-agent: vai como reasoning_effort para o Ollama
+AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | pi-sol | prime-agent
+# So AGENT=pi|pi-sol|prime-agent: vai como reasoning_effort para o Ollama
 # (supportsReasoningEffort=true em harness/*/models.json). Medido no Ollama
 # 0.33.3 com o qwen3.8: funciona como liga/desliga - "off"/none desliga o
 # raciocinio, low/medium/high/xhigh/max dao todos o mesmo, e sem o parametro
@@ -126,7 +127,15 @@ invoke_agent() {
       [[ "$side" != "claude" ]] && export OPENAI_BASE_URL="$OLLAMA_URL/v1"
       timeout "$TIMEOUT_S" opencode run "$prompt"
       ;;
-    pi|prime-agent)
+    pi|pi-sol|prime-agent)
+      # pi-sol = o MESMO pi global + a extensao SoL-Pi da NVIDIA (harness/
+      # sol-pi-src, commit fixado por harness/get-sol-pi.sh), com os 4
+      # mecanismos ligados. Ablacao limpa contra AGENT=pi: so muda a extensao.
+      # O SoL-Pi exige sessao persistente (falha com --no-session), por isso
+      # grava-a em logs/, fora do run dir. O redutor de logs usa por omissao
+      # um modelo remoto (openai-codex/gpt-5.6-luna) - aqui fica fixado ao
+      # MESMO modelo do side, via sol-pi.json gerado por run.
+      #
       # O prime-agent e um fork do pi: mesmas flags, mesmo stream JSON. Muda o
       # binario, a env var da config e as tools - o prime-agent so expoe uma,
       # `ipython` (le/edita ficheiros e corre comandos a partir de um kernel
@@ -139,13 +148,20 @@ invoke_agent() {
       # tudo o que o modelo pede (o acceptEdits do claude-code ja deixa Bash).
       # O prime-agent corre SEM --autonomous-gate de proposito: um gate com o
       # verificador mostrava ao agente o criterio que os outros nao veem.
-      local bin cfg_var tools extra=()
+      local bin cfg_var tools cfg_dir="$ROOT/harness/$AGENT" extra=(--no-session)
       if [[ "$AGENT" == pi ]]; then
         bin=pi; cfg_var=PI_CODING_AGENT_DIR; tools=read,bash,edit,write,grep,find,ls
-        extra=(--no-approve)           # o prime-agent nao tem esta flag
+        extra+=(--no-approve)          # o prime-agent nao tem esta flag
+      elif [[ "$AGENT" == pi-sol ]]; then
+        local sol="$ROOT/harness/sol-pi-src/src/sol-pi/index.ts"
+        [[ -f "$sol" ]] || { echo '{"is_error":true,"error":"falta o SoL-Pi: corre harness/get-sol-pi.sh"}'; return 1; }
+        bin=pi; cfg_var=PI_CODING_AGENT_DIR
+        tools=read,bash,edit,write,grep,find,ls,obs_recall,update_plan
+        # --no-extensions nao bloqueia um -e explicito (pi --help).
+        extra=(--no-approve -e "$sol" --session-dir "$PI_EVENTS_FILE.sessions")
       else
         bin=prime-agent; cfg_var=PRIME_AGENT_CODING_AGENT_DIR; tools=ipython
-        extra=(--offline)
+        extra+=(--offline)
       fi
       local provider model
       if is_claude_side "$side"; then
@@ -161,14 +177,24 @@ invoke_agent() {
         model="$(local_model_for "$side")"
         [[ "$model" == *:* ]] || model="$model:latest"   # casa pelo id exato do models.json
       fi
+      if [[ "$AGENT" == pi-sol ]]; then
+        # Config por run: o sol-pi.json tem de apontar o redutor ao modelo
+        # deste side, e o agent dir e onde o SoL-Pi o procura.
+        cfg_dir="$PI_EVENTS_FILE.agent"
+        rm -rf "$cfg_dir" "$PI_EVENTS_FILE.sessions"
+        mkdir -p "$cfg_dir"
+        cp "$ROOT/harness/pi-sol/models.json" "$ROOT/harness/pi-sol/settings.json" "$cfg_dir/"
+        printf '{\n  "version": 1,\n  "actionFusion": true,\n  "observationPack": true,\n  "evidencePreservingReducer": true,\n  "evidencePreservingReducerProvider": "%s",\n  "evidencePreservingReducerModel": "%s",\n  "onlineContextCompact": true,\n  "cacheWriteReadRatio": 12.5\n}\n' \
+          "$provider" "$model" > "$cfg_dir/sol-pi.json"
+      fi
       local events="$PI_EVENTS_FILE" t0 rc
       t0=$(( $(date +%s%N) / 1000000 ))
-      env "$cfg_var=$ROOT/harness/$AGENT" PI_OFFLINE=1 PI_TELEMETRY=0 PRIME_AGENT_TELEMETRY=0 \
+      env "$cfg_var=$cfg_dir" PI_OFFLINE=1 PI_TELEMETRY=0 PRIME_AGENT_TELEMETRY=0 \
         timeout "$TIMEOUT_S" "$bin" -p "$prompt" --mode json \
           --provider "$provider" --model "$model" --thinking "$PI_THINKING" \
           --tools "$tools" \
-          --no-session --no-extensions --no-skills --no-prompt-templates \
-          --no-context-files "${extra[@]}" > "$events"
+          --no-extensions --no-skills --no-prompt-templates \
+          --no-context-files "${extra[@]}" < /dev/null > "$events"   # sem isto o pi -p espera EOF num stdin que nao e tty
       rc=$?
       python3 "$ROOT/harness/pi_summary.py" "$events" "$(( $(date +%s%N) / 1000000 - t0 ))" "$rc" "$AGENT"
       return "$rc"
@@ -203,7 +229,7 @@ run_one() {
   # quota esgotada saiam todos daqui, e sem isto ficavam indistinguiveis de
   # "o modelo respondeu e respondeu mal" (pass=0 por o verificador falhar).
   local agent_exit
-  rm -f "$log.events.jsonl"
+  rm -rf "$log.events.jsonl" "$log.events.jsonl.agent" "$log.events.jsonl.sessions"
   ( cd "$rundir" && PI_EVENTS_FILE="$log.events.jsonl" invoke_agent "$side" "$prompt" ) > "$log" 2> "$log.stderr"
   agent_exit=$?
 

@@ -5,3 +5,9 @@ __pycache__/
 .venv/
 _frames/
 .pytest_cache/
+# estado de runtime dos harnesses: so models.json e settings.json sao config
+harness/*/*
+!harness/*/models.json
+!harness/*/settings.json
+!harness/ollama/*.Modelfile
+harness/sol-pi-src/
