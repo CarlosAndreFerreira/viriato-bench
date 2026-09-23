@@ -94,6 +94,13 @@ invalidada. Os ajustes de amostragem correm como tags derivadas, cada uma um
 As tags derivadas partilham os pesos da base; só muda o Modelfile. O lado
 Claude não é afetado por nada disto e não se refaz.
 
+**Resultado destes braços (medido a 2026-09-23, K=3, `AGENT=pi`/`pi-sol`):** o
+`qwen3.8-t02` passou o `v1-polygon` e o `v2-solar`, que o `qwen3.8` a
+temperatura 1 nunca terminou dentro do tempo em nenhum dos três harnesses. O
+`qwen3.8-pp15` passou o v1 mas fora de tempo. O `qwen3-coder-t02` falhou por
+física errada, não por tempo. Números e ressalvas em `RESULTS.md` — este
+ficheiro continua a ser o pré-registo e não se reescreve com resultados.
+
 **Contexto da decisão.** No `v1-polygon` com `AGENT=pi` e `PI_THINKING=high`
 (batch `pi-high-v1v2`), o `qwen3.8` passou mais de 30 min num único turno de
 raciocínio (~78 mil caracteres) sem chamar nenhuma ferramenta. É consistente

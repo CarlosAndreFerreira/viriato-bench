@@ -10,6 +10,9 @@ por correr fora da política de quant Q4_K_M).
 A tese não é "o 27B é tão bom como o Claude". É: **que fração do trabalho
 migra para local, a que latência, a que custo, e onde é que parte.**
 
+Resultados medidos até agora, com as ressalvas do que não suportam:
+**[`RESULTS.md`](RESULTS.md)**.
+
 ---
 
 ## 0. Pré-requisitos
@@ -49,6 +52,7 @@ precisam de browser e correm sempre.
 ```
 lusitano-bench/
 ├── PROTOCOL.md          # pré-registo. Preenche ANTES da primeira run.
+├── RESULTS.md           # o que já foi medido, e o que os números nao suportam
 ├── bench.sh             # runner: fixture limpo, timeout, JSON, scoring
 ├── score.py             # results.csv -> pass@1
 ├── monitor.py           # watts / RAM / temperatura durante as runs
@@ -312,6 +316,11 @@ nada. As referências ficam fora de `tasks/` de propósito: o `bench.sh` só cop
    voto cego e mede preferência, não capacidade. Não faças média das duas.
 2. **k ≥ 3.** O `score.py` marca as tarefas em que as runs discordam. É
    exatamente aí que uma run isolada te teria mentido.
+   **Um pass fora de tempo não é um pass.** Uma run cortada pelo `TIMEOUT_S`
+   ainda é pontuada: se os ficheiros estavam certos no instante em que o
+   processo foi morto, o verificador dá PASS com o agente ainda a iterar. O
+   `score.py` e o dashboard separam `pass@1 limpo` (o número citável) de
+   `pass@1 largo`. Cita o limpo.
 3. **Fixture limpo por run.** Já está no `bench.sh`. Não contornes.
 4. **Sem rubricas 1–5.** Uma pontuação que dás depois de veres o output é
    post-hoc e não sobrevive ao Q&A.
