@@ -25,6 +25,7 @@ A tag derivada `qwen3.8-t02` só muda isso para 0.2.
 | pi-sol | v1-polygon | `qwen3.8` | 0/1 | 3000 s (timeout) |
 | **pi** | **v1-polygon** | **`qwen3.8-t02`** | **2/3** | **1280 s** |
 | **pi-sol** | **v1-polygon** | **`qwen3.8-t02`** | **3/3** | **1079 s** |
+| prime-agent | v1-polygon | `qwen3.8-t02` | 0/1 (pass fora de tempo) | 3001 s |
 | claude-code | v2-solar | `qwen3.8` | 0/1 | 3000 s (timeout) |
 | pi-sol | v2-solar | `qwen3.8` | 0/1 | 3001 s (timeout) |
 | **pi** | **v2-solar** | **`qwen3.8-t02`** | **2/3** | **2087 s** |
@@ -54,6 +55,23 @@ amostragem pesou mais do que o scaffold.**
 No `a1-bugfix` os harnesses leves foram 3 a 5 vezes mais rápidos que o
 claude-code com o mesmo modelo. Nas tarefas visuais a temperatura 1, nenhum
 salvou o modelo.
+
+**O scaffold muda quanto o modelo raciocina.** Mesmo modelo, mesma
+temperatura (`qwen3.8-t02`), mesmo `v1-polygon`, K=1 por célula:
+
+| Harness | Ferramentas | Turnos | Raciocínio total | Maior turno | Resultado |
+|---|---|---|---|---|---|
+| pi | read/write/edit/bash | 18 | 29 mil | 10 mil | pass limpo, 1280 s |
+| pi-sol | idem + obs_recall/update_plan | 8 | 11 mil | 9 mil | pass limpo, 1079 s |
+| prime-agent | só `ipython` | 12 | **92 mil** | **54 mil** | pass fora de tempo, 3001 s |
+
+O prime-agent raciocinou 3 a 8 vezes mais por run que os outros dois com o
+mesmo modelo e a mesma temperatura, e voltou aos turnos gigantes (54 mil
+caracteres) que a temperatura 0.2 tinha eliminado no pi. Escreveu um
+`index.html` válido às 23:33 e continuou a mexer nele até ser morto às 23:57.
+Uma ferramenta única (`ipython`, kernel persistente) parece empurrar o modelo
+para planear dentro do turno em vez de iterar contra o disco. **É K=1: é uma
+pista para investigar, não um resultado.**
 
 **O SoL-Pi não mostra efeito atribuível.** Com `qwen3.8-t02` e K=3: 3/3 contra
 2/3 no v1 (uma run de diferença), 2/3 contra 2/3 no v2. No `a1-bugfix` fez 5
@@ -97,8 +115,11 @@ harness do Claude Code estar afinada para modelos Claude (§7).
 |---|---|---|---|
 | 1 | `claude-code` + `qwen3.8-t02`, v1 e v2, K=3 | ~4 h | A temperatura resolve em geral, ou só no pi? |
 | 2 | K=5 nas células t02 de `pi` e `pi-sol` | ~6 h | O SoL-Pi tem efeito real ou é ruído? |
-| 3 | `prime-agent` + `qwen3.8-t02`, v1, K=1 | ~1 h | Triagem: um scaffold radicalmente diferente muda algo? |
+| 3 | `prime-agent` + `qwen3.8-t02`, v1, **K=3** | ~2.5 h | A triagem K=1 deu pass fora de tempo com 92 mil caracteres de raciocínio (§2). Confirma-se? |
 | 4 | `opencode` | uma tarde + parser | Pouco, e com um confundidor por resolver (ver README §5) |
+
+A triagem #3 a K=1 já correu (batch `prime-t02-v1`) e é o que motiva a nova
+versão da linha.
 
 Infraestrutura: pico de 50 GiB de RAM nas 12 runs do K=3
 (`power-t02-k3-20260923.csv`), contra os 110 GiB que causaram o OOM antes de o
