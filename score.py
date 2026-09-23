@@ -75,6 +75,12 @@ def main() -> None:
         # antigos nao tem a coluna - get() com default "0" mantem isso silencioso.
         timeouts = sum(1 for r in rs if r.get("timeout_hit", "0") == "1")
         agent_fails = sum(1 for r in rs if r.get("agent_exit", "0") not in ("0", ""))
+        # Um pass com timeout_hit=1 nao e um pass: o verificador correu sobre
+        # ficheiros que estavam certos no instante em que o processo foi morto,
+        # com o agente ainda a iterar. Conta-se a parte, nunca como vitoria.
+        late = [r for r in scored
+                if r["pass"] == "1" and r.get("timeout_hit", "0") == "1"]
+        passes_clean = passes - len(late)
         out.append({
             "agent": agent,
             "task": task,
@@ -84,6 +90,9 @@ def main() -> None:
             "skips": skips,
             "passes": f"{passes}/{k}" if k else "0/0",
             "pass_at_1": round(passes / k, 3) if k else None,
+            "passes_limpos": f"{passes_clean}/{k}" if k else "0/0",
+            "pass_at_1_limpo": round(passes_clean / k, 3) if k else None,
+            "passes_fora_de_tempo": len(late),
             "wall_median_s": round(statistics.median(walls)) if walls else None,
             "turns_median": round(statistics.median(turns), 1) if turns else None,
             "cost_usd_total": round(sum(costs), 4) if costs else None,
@@ -91,18 +100,32 @@ def main() -> None:
             "agent_fails": agent_fails,
         })
 
-    cols = ["agent", "task", "side", "k", "skips", "passes", "pass_at_1",
+    # pass_at_1_limpo primeiro: e o numero citavel. O pass_at_1 largo fica ao
+    # lado para se ver a diferenca, nao para ir sozinho para um slide.
+    cols = ["agent", "task", "side", "k", "skips", "passes_limpos",
+            "pass_at_1_limpo", "passes", "pass_at_1",
             "wall_median_s", "turns_median", "cost_usd_total"]
     print("| " + " | ".join(cols) + " |")
     print("|" + "|".join(["---"] * len(cols)) + "|")
     for r in out:
         print("| " + " | ".join("-" if r[c] is None else str(r[c]) for c in cols) + " |")
 
-    flaky = [r for r in out if r["pass_at_1"] not in (None, 0.0, 1.0)]
+    late_groups = [r for r in out if r["passes_fora_de_tempo"]]
+    if late_groups:
+        print("\n> PASSES FORA DE TEMPO: o verificador aceitou, mas o agente foi morto"
+              " pelo timeout enquanto ainda iterava. Estao dentro do pass@1 largo e"
+              " fora do pass@1 limpo. Nao os cites como vitoria:")
+        for r in late_groups:
+            print(f">   - {r['task']} / {r['side']} / {r['agent']}:"
+                  f" {r['passes_fora_de_tempo']} de {r['passes']} passes"
+                  f" (limpos: {r['passes_limpos']})")
+
+    flaky = [r for r in out if r["pass_at_1_limpo"] not in (None, 0.0, 1.0)]
     if flaky:
-        print("\n> Instaveis (as k runs discordam entre si). Cita pass@1, nunca uma run isolada:")
+        print("\n> Instaveis (as k runs discordam entre si), por pass@1 limpo."
+              " Cita pass@1, nunca uma run isolada:")
         for r in flaky:
-            print(f">   - {r['task']} / {r['side']} / {r['agent']}: {r['passes']}")
+            print(f">   - {r['task']} / {r['side']} / {r['agent']}: {r['passes_limpos']}")
 
     skipped = [r for r in out if r["skips"]]
     if skipped:
@@ -119,8 +142,9 @@ def main() -> None:
 
     harness_fails = [r for r in out if r["agent_fails"]]
     if harness_fails:
-        print("\n> Com falhas do agente antes do verificador correr (timeout, crash, auth, quota)."
-              " Contam para pass@1 como fail, mas NAO sao 'o modelo respondeu errado':")
+        print("\n> Com falhas do agente (timeout, crash, auth, quota). O verificador ainda"
+              " corre depois, por isso uma destas runs pode dar pass (ver acima); o que"
+              " nao da e dizer que 'o modelo respondeu errado':")
         for r in harness_fails:
             bits = [f"{r['timeouts']} timeout" if r["timeouts"] else None,
                     f"{r['agent_fails'] - r['timeouts']} outro exit!=0" if r["agent_fails"] > r["timeouts"] else None]
