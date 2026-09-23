@@ -233,6 +233,18 @@ run_one() {
   ( cd "$rundir" && PI_EVENTS_FILE="$log.events.jsonl" invoke_agent "$side" "$prompt" ) > "$log" 2> "$log.stderr"
   agent_exit=$?
 
+  # Esta maquina corre o Ollama com OLLAMA_KEEP_ALIVE=24h,
+  # OLLAMA_MAX_LOADED_MODELS=3 e OLLAMA_NUM_PARALLEL=4. Com o contexto nativo
+  # de 262144 tokens, cada modelo fica com ~39 GiB residentes e nunca sai da
+  # memoria sozinho: a 3a tag local carregada levou a maquina a OOM a
+  # 2026-09-22 17:59 e matou a sessao inteira (ver PROTOCOL 2.3). Descarregar
+  # aqui mantem uma tag de cada vez em memoria.
+  if ! is_claude_side "$side"; then
+    local unload; unload="$(local_model_for "$side")"
+    [[ "$unload" == *:* ]] || unload="$unload:latest"
+    ollama stop "$unload" >/dev/null 2>&1
+  fi
+
   local timeout_hit=0
   [[ "$agent_exit" -eq 124 ]] && timeout_hit=1
 

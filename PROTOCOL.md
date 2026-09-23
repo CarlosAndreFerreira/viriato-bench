@@ -102,6 +102,29 @@ a escrever. `reasoning_effort` no Ollama 0.33.3 com o qwen3.8 é só
 liga/desliga (medido: `none` desliga, os níveis dão o mesmo, sem parâmetro já
 raciocina), por isso não é a alavanca para isto.
 
+### 2.3 Memória: OOM de 2026-09-22 e descarga entre runs
+
+O Ollama desta máquina corre com `OLLAMA_KEEP_ALIVE=24h`,
+`OLLAMA_MAX_LOADED_MODELS=3` e `OLLAMA_NUM_PARALLEL=4` (unit systemd). Com o
+contexto nativo de 262144 tokens e 4 slots paralelos, **cada tag local ocupa
+~39 GiB residentes** (medido: `free` sobe de 4 para 43 GiB ao carregar o
+`qwen3.8-t02`, que o `ollama ps` reporta como 18 GB) e não é descarregada
+durante 24 h.
+
+A 2026-09-22 17:50, ao carregar a 3.ª tag local do batch `sampling-v1`
+(`qwen3-coder-t02`, com `qwen3.8-t02` e `qwen3.8-pp15` ainda residentes), a
+RAM chegou a 110 GiB (`power-queue-20260922.csv`) e às 17:59:37 o kernel
+disparou o OOM killer. O systemd derrubou `user@1000.service` inteiro: caiu
+a sessão gráfica e as duas filas de runs. A run do `qwen3-coder-t02` no
+`v1-polygon` morreu a meio e **não produziu linha no CSV** — não é um
+timeout nem uma falha do modelo, é infraestrutura. Não se conta como falha.
+
+Mitigação, sem alterar a unit do Ollama: o `bench.sh` faz `ollama stop` da
+tag no fim de cada run local, por isso fica no máximo uma tag em memória.
+As runs anteriores a esta data correram sem essa descarga; nas que
+partilharam memória com outra tag, a pressão de memória é uma variável não
+controlada (relevante sobretudo para `qwen3.8-flash-next`, ~94 GB).
+
 ## 3. Tarefas
 
 Cada tarefa tem: `PROMPT.md` (enviado verbatim aos dois lados), `fixture/`
