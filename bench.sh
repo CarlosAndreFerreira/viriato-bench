@@ -23,16 +23,21 @@ LOGS_DIR="$ROOT/logs"
 RESULTS="$ROOT/results.csv"
 
 K="${K:-3}"
+# Primeiro k a correr. Serve para completar um batch existente sem apagar as
+# runs que ja la estao (o run_one faz rm -rf do run dir de cada k): ex.
+# BATCH_ID=<batch antigo> K_START=2 K=3 corre so as runs 2 e 3.
+K_START="${K_START:-1}"
 TIMEOUT_S="${TIMEOUT_S:-3000}"
 TASKS="${TASKS:-v1-polygon v2-solar v3-viriato a1-bugfix}"
 SIDES="${SIDES:-claude qwen}"
 AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | pi-sol | prime-agent
 # So AGENT=pi|pi-sol|prime-agent: vai como reasoning_effort para o Ollama
 # (supportsReasoningEffort=true em harness/*/models.json). Medido no Ollama
-# 0.33.3 com o qwen3.8: funciona como liga/desliga - "off"/none desliga o
-# raciocinio, low/medium/high/xhigh/max dao todos o mesmo, e sem o parametro
-# o modelo ja raciocina. Nao aumenta o raciocinio face ao default; torna-o
-# explicito e registavel. O qwen3-coder nao tem modo de raciocinio.
+# 0.33.3 com o qwen3.8: reasoning_effort "none" desliga o raciocinio,
+# low/medium/high/xhigh/max dao todos o mesmo, e sem o parametro o modelo ja
+# raciocina. ATENCAO: PI_THINKING=off NAO desliga - o pi nesse caso nao envia
+# parametro nenhum (capturado a 2026-09-24), e sem parametro o Ollama raciocina.
+# O pi nao tem forma de enviar "none". O qwen3-coder nao tem modo de raciocinio.
 PI_THINKING="${PI_THINKING:-medium}"
 
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"       # fixa explicitamente, ex: claude-opus-5
@@ -288,7 +293,7 @@ run_one() {
 }
 
 for task in $TASKS; do
-  for k in $(seq 1 "$K"); do
+  for k in $(seq "$K_START" "$K"); do
     for side in $SIDES; do
       run_one "$side" "$task" "$k"
     done

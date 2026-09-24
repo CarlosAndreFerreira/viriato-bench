@@ -231,8 +231,10 @@ AGENT=prime-agent SIDES=qwen TASKS=v1-polygon K=1 ./bench.sh
   a temperatura por omissão do Ollama, como no lado claude-code.
 - Sem extensões, skills, AGENTS.md nem templates: o harness nu.
 - `PI_THINKING` (omissão `medium`) vai como `reasoning_effort` para o Ollama.
-  Com o qwen3.8 é liga/desliga — `off` desliga, qualquer outro nível dá o
-  mesmo, e sem o parâmetro o modelo já raciocina.
+  Com o qwen3.8 os níveis dão todos o mesmo raciocínio, e sem o parâmetro o
+  modelo já raciocina. **`PI_THINKING=off` não desliga o raciocínio**: o pi
+  deixa de enviar o parâmetro e o Ollama raciocina por omissão (ver
+  `RESULTS.md` §6.1).
 - O Prime Agent corre **sem** `--autonomous-gate`: um gate com o verificador
   mostrava ao agente o critério que os outros harnesses não veem.
 - Nenhum dos dois tem modo de permissões. O `ipython` do Prime Agent corre com
