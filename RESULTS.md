@@ -19,14 +19,23 @@ claude-code, `claude-opus-5` contra `qwen3.8` (temperatura 1, a de origem), K=3.
 
 | Tarefa | claude-opus-5 | Mediana | Custo | qwen3.8 | Mediana |
 |---|---|---|---|---|---|
-| v1-polygon | **3/3** | 429 s | 6.15 $ | 0/1 | 3000 s (timeout) |
-| v2-solar | **3/3** | 458 s | 6.89 $ | 0/1 | 3000 s (timeout) |
-| v3-viriato | **3/3** | 486 s | 7.90 $ | 0/1 | 3001 s (timeout) |
-| a1-bugfix | **3/3** | 138 s | 4.12 $ | 1/1 | 571 s |
+| v1-polygon | **3/3** | 429 s | 6.15 $ | **0/3** | 3000 s (timeout) |
+| v2-solar | **3/3** | 458 s | 6.89 $ | **0/3** | 3000 s (timeout) |
+| v3-viriato | **3/3** | 486 s | 7.90 $ | **0/3** | 3001 s (timeout) |
+| a1-bugfix | **3/3** | 138 s | 4.12 $ | **3/3** | 571 s |
 
-O lado Claude está completo: 12 runs, 12 passes limpos, 25.06 $ de custo
-equivalente em API. Cada célula 3/3 tem IC95% de [44%, 100%]. **O lado
-`qwen3.8` continua a K=1** (ver §8).
+**A grelha está completa** (24 runs, K=3 nos dois lados, 2026-09-24).
+
+- Claude: 12/12 limpos, 25.06 $ de custo equivalente em API.
+- `qwen3.8` a temperatura 1: **3/3 no a1-bugfix** (489 · 571 · 813 s, cerca de
+  4× o tempo do Claude) e **0/9 nas três tarefas visuais/SRS**. Nas 9 falhas a
+  pasta da run ficou **vazia**: nenhum `index.html` nem `maze.py` em 50 min.
+- Diferença nas tarefas v1+v2+v3: 9/9 contra 0/9, **Fisher p = 0.00002**.
+
+As runs 2 e 3 do `qwen3.8` correram a 2026-09-24 com kernel 7.0.0-34 e Claude
+Code 2.1.276; as runs 1, entre 17 e 20 de setembro, com 7.0.0-31 e 2.1.274
+(ver §6.4). Como as 9 runs visuais falharam da mesma maneira nos dois
+ambientes, a deriva não muda a leitura.
 
 ## 2. Resultado principal: a temperatura desbloqueou o local
 
@@ -39,8 +48,9 @@ A tag derivada `qwen3.8-t02` só muda a temperatura de 1 para 0.2
 | `qwen3.8-t02`, temperatura 0.2 | **9/12** | [47%, 91%] |
 
 **Fisher exato unilateral: p = 0.009.** É a única diferença deste bench que é
-estatisticamente significativa com o K que existe. Contando todas as runs
-visuais a temperatura 1, em qualquer harness, são **0/10 limpos**.
+estatisticamente significativa com o K que existe, fora da comparação direta
+Claude contra local. Contando todas as runs visuais a temperatura 1, em
+qualquer harness, são **0/16 limpos**.
 
 **O modo de falha a temperatura 1 é raciocínio sem fim, sem ação.** Prova que
 sobreviveu em disco (ver §6.2 sobre a que não sobreviveu):
@@ -168,6 +178,19 @@ Há uma fonte que funciona sem root: `/sys/class/hwmon/hwmon6/power1_average`
 prime-agent. **A parte "a que custo energético" da pergunta do PROTOCOL §1
 continua sem resposta para todas as runs até esta data.**
 
+**Primeira medição real (2026-09-24, `power-qwen-k3-20260924.csv`, 9646
+amostras, fonte `amdgpu_ppt`), `qwen3.8` em claude-code:**
+
+| Run | Resultado | Duração | Potência média do SoC | Energia do SoC | Temp. máx. |
+|---|---|---|---|---|---|
+| a1-bugfix, 2 | pass | 489 s | 117.5 W | **16.0 Wh** | 91 °C |
+| a1-bugfix, 3 | pass | 813 s | 118.4 W | **26.7 Wh** | 94 °C |
+| v1/v2/v3, 6 runs | timeout | 3000 s | 119.2 W | **99.3–99.4 Wh cada** | 88–90 °C |
+
+Um timeout custa ~99 Wh ao SoC sem produzir nada. Isto é só o SoC: não inclui
+RAM, SSD, ventoinhas nem perdas da fonte, por isso o consumo na tomada é maior.
+O lado Claude não tem medida equivalente: corre na cloud.
+
 **Corrigido a 2026-09-24:** o `monitor.py` usa o RAPL se for legível e, se não,
 o `amdgpu` PPT, e regista a fonte numa coluna nova, `watts_source`. Mede a
 **potência do SoC** (CPU + GPU), não a da tomada: fica de fora RAM, SSD,
@@ -219,7 +242,7 @@ em parte, uma medida do timeout.
 
 | # | O que falta | Porquê |
 |---|---|---|
-| 1 | `qwen3.8` (temperatura 1) em claude-code até K=3, nas 4 tarefas | A grelha nuclear do PROTOCOL exige K=3; hoje está a K=1. |
+| ~~1~~ | ~~`qwen3.8` em claude-code até K=3~~ | **Feito a 2026-09-24** (§1). |
 | ~~2~~ | ~~Corrigir o `monitor.py`~~ | **Feito a 2026-09-24** (§6.3). A energia passa a ser medida nas próximas runs; as anteriores continuam sem ela. |
 | ~~3~~ | ~~Incluir o `batch_id` nas pastas e logs~~ | **Feito a 2026-09-24** (§6.2). |
 | 4 | claude-code + `qwen3.8-t02`, v1 e v2, K=3 | Separa o efeito da temperatura do efeito do harness. |
