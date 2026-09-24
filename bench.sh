@@ -61,7 +61,15 @@ PERM_MODE="${PERM_MODE:-acceptEdits}"  # IDENTICO nos dois lados
 BATCH_ID="${BATCH_ID:-$(date +%Y%m%dT%H%M%S)-$$}"
 
 command -v timeout >/dev/null || { echo "falta timeout (coreutils)"; exit 1; }
-mkdir -p "$RUNS_DIR" "$LOGS_DIR"
+# Pastas e logs arrumados por batch. Ate 2026-09-24 o nome era so
+# agent-side-task-k: correr a mesma celula noutro batch fazia rm -rf da pasta
+# e reescrevia os logs do batch anterior, e perderam-se assim as provas de seis
+# celulas (RESULTS.md 6.2). As linhas do results.csv sobreviviam; o que estava
+# por tras delas nao. Runs anteriores a esta data ficam na raiz de runs/ e logs/.
+BATCH_DIR="${BATCH_ID//\//_}"
+RUN_ROOT="$RUNS_DIR/$BATCH_DIR"
+LOG_ROOT="$LOGS_DIR/$BATCH_DIR"
+mkdir -p "$RUN_ROOT" "$LOG_ROOT"
 echo "batch: $BATCH_ID"
 
 # Le um campo de topo do JSON do agente. Usa jq se existir, senao python3.
@@ -211,8 +219,8 @@ invoke_agent() {
 
 run_one() {
   local side="$1" task="$2" k="$3"
-  local rundir="$RUNS_DIR/$AGENT-$side-$task-$k"
-  local log="$LOGS_DIR/$AGENT-$side-$task-$k.json"
+  local rundir="$RUN_ROOT/$AGENT-$side-$task-$k"
+  local log="$LOG_ROOT/$AGENT-$side-$task-$k.json"
   local prompt_file="$TASKS_DIR/$task/PROMPT.md"
 
   [[ -f "$prompt_file" ]] || { echo "  !! sem PROMPT.md para $task"; return; }
@@ -257,7 +265,7 @@ run_one() {
 
   local exit_tests=99
   if [[ -x "$TASKS_DIR/$task/score.sh" ]]; then
-    ( cd "$rundir" && "$TASKS_DIR/$task/score.sh" ) >"$LOGS_DIR/$AGENT-$side-$task-$k.score" 2>&1
+    ( cd "$rundir" && "$TASKS_DIR/$task/score.sh" ) >"$LOG_ROOT/$AGENT-$side-$task-$k.score" 2>&1
     exit_tests=$?
   fi
   local passed=0 skipped=0

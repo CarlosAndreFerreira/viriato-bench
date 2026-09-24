@@ -155,6 +155,12 @@ por omissão, só o batch mais recente por tarefa/lado — uma segunda passagem
 nunca se mistura silenciosamente com a primeira. Usa `--all-batches` se
 quiseres mesmo juntar tudo.
 
+As pastas de run e os logs ficam por batch: `runs/<batch_id>/` e
+`logs/<batch_id>/`. Correr a mesma tarefa noutro batch já não apaga as provas
+do anterior. Para completar um batch existente sem refazer as runs que já tem,
+usa `K_START`: `BATCH_ID=<batch> K_START=2 K=3 ./bench.sh` corre só as runs 2 e 3.
+Runs anteriores a 2026-09-24 ficam na raiz de `runs/` e `logs/`.
+
 ### Fase 3 — agregar
 
 ```bash

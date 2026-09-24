@@ -152,6 +152,10 @@ Quando a mesma célula corre noutro batch, a evidência do primeiro é apagada.
 As linhas do `results.csv` estão corretas; o que se perdeu foram os logs e as
 pastas por trás delas. As afirmações acima só citam evidência que sobreviveu.
 
+**Corrigido a 2026-09-24:** o `bench.sh` passou a usar `runs/<batch_id>/` e
+`logs/<batch_id>/`. Testado com a mesma célula em três batches: as três pastas
+e os três conjuntos de logs ficam intactos.
+
 ### 6.3 Energia nunca foi medida
 
 As **26 673 linhas** de todos os `power*.csv` têm a coluna `watts` vazia. O
@@ -160,8 +164,18 @@ root (`Permission denied`). A coluna `cpu_temp_c` também está vazia em todas a
 linhas, apesar de o `k10temp` ser legível sem root.
 
 Há uma fonte que funciona sem root: `/sys/class/hwmon/hwmon6/power1_average`
-(sensor `amdgpu`), que marcava 120 W durante uma run do prime-agent. **A parte
-"a que custo energético" da pergunta do PROTOCOL §1 continua sem resposta.**
+(sensor `amdgpu`, label `PPT`), que marcava 120 W durante uma run do
+prime-agent. **A parte "a que custo energético" da pergunta do PROTOCOL §1
+continua sem resposta para todas as runs até esta data.**
+
+**Corrigido a 2026-09-24:** o `monitor.py` usa o RAPL se for legível e, se não,
+o `amdgpu` PPT, e regista a fonte numa coluna nova, `watts_source`. Mede a
+**potência do SoC** (CPU + GPU), não a da tomada: fica de fora RAM, SSD,
+ventoinhas e perdas da fonte. Em repouso marca ~15 W e 37 °C. Também corrigidos
+dois bugs: a temperatura passou a vir do `k10temp` (a única `thermal_zone` desta
+máquina marca 0), e o RAPL só soma os domínios de topo (o glob antigo apanhava
+também o subdomínio `intel-rapl:0:0` e, como root, contaria o consumo duas
+vezes).
 
 ### 6.4 Deriva de ambiente durante as corridas
 
@@ -206,8 +220,8 @@ em parte, uma medida do timeout.
 | # | O que falta | Porquê |
 |---|---|---|
 | 1 | `qwen3.8` (temperatura 1) em claude-code até K=3, nas 4 tarefas | A grelha nuclear do PROTOCOL exige K=3; hoje está a K=1. |
-| 2 | Corrigir o `monitor.py` para ler `amdgpu/power1_average` e `k10temp` | Sem isto, a pergunta do PROTOCOL §1 sobre energia não tem resposta. |
-| 3 | Incluir o `batch_id` nos nomes de pasta e log do `bench.sh` | Para não voltar a perder evidência (§6.2). |
+| ~~2~~ | ~~Corrigir o `monitor.py`~~ | **Feito a 2026-09-24** (§6.3). A energia passa a ser medida nas próximas runs; as anteriores continuam sem ela. |
+| ~~3~~ | ~~Incluir o `batch_id` nas pastas e logs~~ | **Feito a 2026-09-24** (§6.2). |
 | 4 | claude-code + `qwen3.8-t02`, v1 e v2, K=3 | Separa o efeito da temperatura do efeito do harness. |
 | 5 | v3 e a1 com `qwen3.8-t02` | O resultado principal só está medido em 2 das 4 tarefas. |
 | 6 | Um teste real de "sem raciocínio" | O `pi-off-v1` não o testou (§6.1). Precisa de `reasoning_effort: none` enviado ao Ollama. |
