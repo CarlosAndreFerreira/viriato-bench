@@ -82,7 +82,7 @@ A 0.2, os 9 passes limpos escreveram o ficheiro final entre os 517 s e os
 - No a1, o local no pi teve mediana de 121 s contra 138 s do Claude. Com K=3
   de cada lado é um empate, não uma vitória.
 - Um dos passes no v3 acabou a 157 s do limite (2843 de 3000 s): o resultado
-  local continua sensível ao `TIMEOUT_S` (§6.5).
+  local continua sensível ao `TIMEOUT_S` (§6.6).
 
 **Ressalva:** as runs a temperatura 1 do pi usaram `PI_THINKING=high`; as a
 0.2 usaram o default `medium`. No Ollama 0.33.3 com o qwen3.8 os níveis dão o
@@ -186,11 +186,32 @@ com um servidor falso antes de correr: a variável reduz os pedidos de 3 para
   anterior roubou 29 minutos), mas não era a causa. A causa está no pedido
   principal do claude-code. Contra pi+pi-sol no v1 (5/6): **Fisher p = 0.048**.
 
-Por investigar: o que no pedido principal do claude-code põe o modelo a
-raciocinar meia hora num turno, e no pi não. Diferenças conhecidas entre os
-dois pedidos: o prompt de sistema (~18 mil tokens no claude-code), o
-`thinking: {type: adaptive}` com `max_tokens: 32000` (o pi envia
-`reasoning_effort`), e as definições de ferramentas.
+**O que difere entre os pedidos** (capturados a 2026-09-25 com um servidor
+falso, nas condições do bench: mesmas flags do `bench.sh`, cópia da pasta do
+v1, dentro de uma unidade do systemd; nenhum modelo carregado):
+
+| | claude-code: título da sessão | claude-code: agente | pi: agente |
+|---|---|---|---|
+| Corpo do pedido | 6.5 KB | **89 KB** | 10.6 KB |
+| Ferramentas | 0 | 26 | 7 |
+| Limite de saída | `max_tokens` 32 000 | `max_tokens` 32 000 | `max_completion_tokens` 32 768 |
+| Raciocínio | `output_config.effort: high` | `thinking: adaptive` + **`effort: high`** | `reasoning_effort: medium` |
+
+- **O pedido do título pede esforço `high` e até 32 000 tokens** para gerar
+  uma frase — o que explica os 29 minutos que ocupou o slot.
+- **O agente do claude-code pede esforço `high`; o do pi, `medium`.**
+- O Ollama 0.33.3 reconhece o `output_config` da API da Anthropic (a
+  estrutura `anthropic.OutputConfig` está no binário), mas não foi possível
+  confirmar como traduz o esforço ou o `thinking: adaptive` para o modelo.
+
+Controlos do Claude Code, confirmados na captura:
+
+| Configuração | `thinking` | `effort` |
+|---|---|---|
+| Por omissão | `adaptive` | `high` |
+| `--effort medium` | `adaptive` | `medium` |
+| `MAX_THINKING_TOKENS=4000` | `adaptive` | `high` — **não muda o pedido** |
+| `CLAUDE_CODE_DISABLE_THINKING=1` | (retirado) | `high` |
 
 Por confirmar: qual dos timeouts do Claude Code corta (existem
 `CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`, `CLAUDE_STREAM_IDLE_TIMEOUT_MS`,
@@ -311,7 +332,18 @@ vezes).
 Correram com 2.1.276 as runs do Claude no a1 e as runs 2–3 do v3; o v1 e o v2
 correram com 2.1.274.
 
-### 6.5 Os resultados locais dependem do timeout escolhido
+### 6.5 O esforço fixado no PROTOCOL nunca foi aplicado — e as runs correram a `high`
+
+O `PROTOCOL.md` §2 fixa `reasoning_effort: medium` e deixa a nota "não
+aplicado — confirmar se existe uma flag". **A flag existe (`claude
+--effort`), e o `bench.sh` nunca a passou.** Capturado a 2026-09-25: sem ela,
+o Claude Code envia `output_config.effort: "high"`. Portanto **todas as runs
+com `AGENT=claude-code` correram a esforço `high`**, contra o `medium`
+pré-registado — **incluindo as do Claude**. No lado Claude isto significa mais
+raciocínio (e mais custo) do que o protocolo previa; no lado local, o efeito
+depende da forma como o Ollama traduz o campo, que não foi confirmada.
+
+### 6.6 Os resultados locais dependem do timeout escolhido
 
 Momento em que o ficheiro final foi escrito, nos passes limpos:
 
