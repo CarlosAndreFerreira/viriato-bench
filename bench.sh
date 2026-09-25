@@ -41,6 +41,12 @@ AGENT="${AGENT:-claude-code}"          # claude-code | opencode | pi | pi-sol | 
 PI_THINKING="${PI_THINKING:-medium}"
 
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"       # fixa explicitamente, ex: claude-opus-5
+# Esforco do claude-code (claude --effort: low|medium|high|xhigh|max). Vazio =
+# nao passar a flag, e o Claude Code envia output_config.effort "high"
+# (capturado a 2026-09-25). O PROTOCOL 2 pre-registou "medium" e ate esta data
+# nenhuma run o aplicou - ver RESULTS.md 6.5. Nome proprio do bench de
+# proposito: CLAUDE_EFFORT tambem e lido pelo Claude Code.
+CC_EFFORT="${CC_EFFORT:-}"
 
 # Um "side" local por modelo a comparar. Cada um mapeia para uma tag do
 # Ollama; sobrepoe-se com a env var respetiva se quiseres testar outra tag.
@@ -71,6 +77,7 @@ RUN_ROOT="$RUNS_DIR/$BATCH_DIR"
 LOG_ROOT="$LOGS_DIR/$BATCH_DIR"
 mkdir -p "$RUN_ROOT" "$LOG_ROOT"
 echo "batch: $BATCH_ID"
+[[ -n "$CC_EFFORT" && "$AGENT" == claude-code ]] && echo "claude-code --effort $CC_EFFORT"
 
 # Le um campo de topo do JSON do agente. Usa jq se existir, senao python3.
 jget() { # $1 = campo, $2 = ficheiro
@@ -125,6 +132,7 @@ invoke_agent() {
         local model; model="$(claude_model_for "$side")"
         local mf=()
         [[ -n "$model" ]] && mf=(--model "$model")
+        [[ -n "$CC_EFFORT" ]] && mf+=(--effort "$CC_EFFORT")
         timeout "$TIMEOUT_S" claude -p "$prompt" "${mf[@]}" \
           --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
       else
@@ -132,7 +140,9 @@ invoke_agent() {
         export ANTHROPIC_BASE_URL="$OLLAMA_URL"
         export ANTHROPIC_AUTH_TOKEN="ollama"
         export ANTHROPIC_API_KEY=""
-        timeout "$TIMEOUT_S" claude -p "$prompt" --model "$model" \
+        local ef=()
+        [[ -n "$CC_EFFORT" ]] && ef=(--effort "$CC_EFFORT")
+        timeout "$TIMEOUT_S" claude -p "$prompt" --model "$model" "${ef[@]}" \
           --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
       fi
       ;;
