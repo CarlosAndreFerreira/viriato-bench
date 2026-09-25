@@ -137,22 +137,60 @@ mesma tag que passou nos harnesses leves.
 mesma temperatura e as mesmas tarefas: Fisher p = 0.0045.** O harness conta.
 A conclusão do §2 vale para os harnesses leves, não para o claude-code.
 
-O que os logs do Ollama mostram (`journalctl -u ollama`, runs 2–3 do v1):
+O que os logs do Ollama mostram (`journalctl -u ollama`, run 2 do v1):
 
-- **Turnos únicos gigantes voltam.** O primeiro pedido da run 2 tinha 1420
-  tokens de prompt (processados em 4.7 s) e demorou **29 minutos** a
-  responder (11:10 → 11:39). Nas duas runs houve respostas de 16, 20, 29 e 34
-  minutos. No pi, com o mesmo modelo, o maior turno nunca passou de ~15 mil
-  caracteres de raciocínio.
-- **Pedidos paralelos cortados.** Enquanto o pedido principal corria, o
-  Ollama registou *"aborting completion request due to client closing the
-  connection"* às 11:16, 11:22, 11:28 e 11:34 — pedidos secundários do Claude
-  Code ao mesmo modelo (o stderr regista pelo menos um, `generate_session_title`),
-  cortados de 6 em 6 minutos. Com `OLLAMA_NUM_PARALLEL=4` estes pedidos
-  disputam a GPU com o principal. No pi: 65 pedidos, 0 cortes.
+- **O Ollama correu com um único slot.** As 7167 linhas de slot entre
+  2026-09-24 23:00 e 2026-09-25 15:15 são todas do slot 0: os pedidos ficam
+  em fila, não correm em paralelo.
+- **Um pedido secundário do Claude Code ocupou o slot durante 29 minutos.**
+  O primeiro pedido tinha 1420 tokens e nenhuma ferramenta — não é o agente,
+  é o pedido que gera o resumo/título da sessão (capturado com um servidor
+  falso: `max_tokens` 3072, sem ferramentas, *"A user kicked off a Claude Code
+  agent to do a coding task…"*). O modelo gerou ~31 mil tokens para ele, das
+  11:10 às 11:39.
+- **O pedido do agente ficou na fila atrás dele e foi cortado de 6 em 6
+  minutos.** O Ollama registou *"aborting completion request due to client
+  closing the connection"* às 11:16, 11:22, 11:28, 11:34 e 11:40: o Claude
+  Code desiste de um pedido sem primeiro byte ao fim de ~6 min e volta a
+  tentar. O pedido do agente (22 494 tokens) só começou a ser processado às
+  11:39 — **29 dos 50 minutos da run foram gastos no título da sessão.**
+- **O pi não faz pedidos secundários**: 65 pedidos em 6 runs, 0 cortes.
 - **A run 2 do v2 morreu por erro do harness**, não do modelo: dois pedidos de
   ~52 mil tokens cancelados pelo cliente aos ~3 min 15 s, e o Claude Code
   terminou com *"API Error: The response stopped arriving"*.
+
+Uma versão anterior desta secção dizia que os pedidos secundários
+"disputam a GPU em paralelo". Estava errado: com um único slot, bloqueiam.
+
+**Teste da hipótese: sem pedidos secundários** (batch `cc-t02-noness-k3`,
+2026-09-25, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, v1, K=3). Capturado
+com um servidor falso antes de correr: a variável reduz os pedidos de 3 para
+1, **mas também reduz as ferramentas nativas do pedido principal de 33 para
+23** — os dois efeitos não se separam.
+
+| Run | Resultado | Pedidos ao Ollama (duração) |
+|---|---|---|
+| 1 | pass fora de tempo (`index.html` aos 2158 s) | 30 min 47 s · 5 min · 5 min · 9 min |
+| 2 | timeout, pasta vazia | **32 min** · 18 min |
+| 3 | timeout, pasta vazia | **33 min** · 17 min |
+
+- **0/3 limpos.** A variável eliminou os pedidos secundários e os cortes (0
+  nas três runs), e deu o primeiro `index.html` válido do claude-code com um
+  modelo local no v1 — mas fora de tempo.
+- **O primeiro turno gigante é do próprio pedido do agente**: 31–33 minutos
+  nas três runs, sem nenhum pedido secundário à frente. Na run 1, esse turno
+  gerou ~32 mil tokens (17 835 → 49 834 tokens no slot), praticamente o
+  `max_tokens: 32000` que o Claude Code envia — pista, não conclusão, de que
+  só parou por bater no limite.
+- **Conclusão:** o pedido do título agravava a falha (na run 2 do batch
+  anterior roubou 29 minutos), mas não era a causa. A causa está no pedido
+  principal do claude-code. Contra pi+pi-sol no v1 (5/6): **Fisher p = 0.048**.
+
+Por investigar: o que no pedido principal do claude-code põe o modelo a
+raciocinar meia hora num turno, e no pi não. Diferenças conhecidas entre os
+dois pedidos: o prompt de sistema (~18 mil tokens no claude-code), o
+`thinking: {type: adaptive}` com `max_tokens: 32000` (o pi envia
+`reasoning_effort`), e as definições de ferramentas.
 
 Por confirmar: qual dos timeouts do Claude Code corta (existem
 `CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`, `CLAUDE_STREAM_IDLE_TIMEOUT_MS`,
