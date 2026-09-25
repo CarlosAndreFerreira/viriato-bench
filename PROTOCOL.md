@@ -128,6 +128,12 @@ timeout nem uma falha do modelo, é infraestrutura. Não se conta como falha.
 
 Mitigação, sem alterar a unit do Ollama: o `bench.sh` faz `ollama stop` da
 tag no fim de cada run local, por isso fica no máximo uma tag em memória.
+
+**Correção (2026-09-25):** a explicação acima está incompleta. A 2026-09-23,
+com a máquina acabada de reiniciar e nenhum outro modelo carregado, o
+`qwen3-coder-t02` sozinho levou a RAM a 110.2 GiB durante o carregamento
+(`power-queue3-20260923.csv`). O OOM de 2026-09-22 coincidiu com o
+carregamento dessa tag. Ver `RESULTS.md`, secção de memória.
 As runs anteriores a esta data correram sem essa descarga; nas que
 partilharam memória com outra tag, a pressão de memória é uma variável não
 controlada (relevante sobretudo para `qwen3.8-flash-next`, ~94 GB).

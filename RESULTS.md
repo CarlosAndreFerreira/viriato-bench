@@ -1,6 +1,6 @@
 # Resultados
 
-Estado a **2026-09-24**. Números gerados por `python3 score.py` a partir do
+Estado a **2026-09-25**. Números gerados por `python3 score.py` a partir do
 `results.csv`; os logs crus estão em `logs/`. O `PROTOCOL.md` é o pré-registo
 e não muda com o que está aqui. Cada afirmação abaixo indica a prova.
 
@@ -37,7 +37,7 @@ Code 2.1.276; as runs 1, entre 17 e 20 de setembro, com 7.0.0-31 e 2.1.274
 (ver §6.4). Como as 9 runs visuais falharam da mesma maneira nos dois
 ambientes, a deriva não muda a leitura.
 
-## 2. Resultado principal: a temperatura desbloqueou o local
+## 2. Resultado principal: a temperatura desbloqueou o local (nos harnesses leves)
 
 A tag derivada `qwen3.8-t02` só muda a temperatura de 1 para 0.2
 (`harness/ollama/qwen3.8-t02.Modelfile`).
@@ -63,6 +63,26 @@ sobreviveu em disco (ver §6.2 sobre a que não sobreviveu):
 
 A 0.2, os 9 passes limpos escreveram o ficheiro final entre os 517 s e os
 2646 s, com 3 a 39 turnos.
+
+**As quatro tarefas no pi** (`qwen3.8-t02`, K=3; a1 e v3 no batch
+`pi-t02-v3a1-k3`, 2026-09-25):
+
+| Tarefa | pi + `qwen3.8-t02` | Mediana | claude-code + `qwen3.8` (temp. 1) | claude-code + Claude |
+|---|---|---|---|---|
+| a1-bugfix | **3/3** | **121 s** | 3/3, 571 s | 3/3, 138 s |
+| v1-polygon | **2/3** | 1280 s | 0/3 | 3/3, 429 s |
+| v2-solar | **2/3** | 2087 s | 0/3 | 3/3, 458 s |
+| v3-viriato | **2/3** | 2843 s | 0/3 | 3/3, 486 s |
+
+- **O v3 tem o primeiro pass limpo local** do bench (1718 s e 2843 s). A
+  terceira run deu timeout sem escrever o `maze.py`.
+- Nas três tarefas visuais/SRS: 6/9 no pi a 0.2 contra 0/9 no claude-code a
+  temperatura 1, **Fisher p = 0.0045**. Esta comparação mistura harness e
+  temperatura; o §3.3 separa-os.
+- No a1, o local no pi teve mediana de 121 s contra 138 s do Claude. Com K=3
+  de cada lado é um empate, não uma vitória.
+- Um dos passes no v3 acabou a 157 s do limite (2843 de 3000 s): o resultado
+  local continua sensível ao `TIMEOUT_S` (§6.5).
 
 **Ressalva:** as runs a temperatura 1 do pi usaram `PI_THINKING=high`; as a
 0.2 usaram o default `medium`. No Ollama 0.33.3 com o qwen3.8 os níveis dão o
@@ -103,7 +123,43 @@ quatro mecanismos disparou**. Na prática o pi-sol foi o pi com três ferramenta
 a mais no prompt. A diferença pi-sol contra pi (5/6 contra 4/6, p = 0.50) é
 ruído, e não pode ser atribuída ao SoL-Pi.
 
-### 3.3 No a1-bugfix
+### 3.3 No claude-code, a temperatura 0.2 não chega
+
+Batch `cc-t02-k3`, 2026-09-24/25: o harness do PROTOCOL com `qwen3.8-t02`, a
+mesma tag que passou nos harnesses leves.
+
+| Tarefa | Run 1 | Run 2 | Run 3 | Limpos |
+|---|---|---|---|---|
+| v1-polygon | timeout, pasta vazia | timeout, pasta vazia | timeout, pasta vazia | **0/3** |
+| v2-solar | pass fora de tempo (ficheiro aos 2641 s) | erro do harness, exit=1 | timeout, pasta vazia | **0/3** |
+
+**0/6 limpos no claude-code contra 9/12 em pi + pi-sol, com o mesmo modelo, a
+mesma temperatura e as mesmas tarefas: Fisher p = 0.0045.** O harness conta.
+A conclusão do §2 vale para os harnesses leves, não para o claude-code.
+
+O que os logs do Ollama mostram (`journalctl -u ollama`, runs 2–3 do v1):
+
+- **Turnos únicos gigantes voltam.** O primeiro pedido da run 2 tinha 1420
+  tokens de prompt (processados em 4.7 s) e demorou **29 minutos** a
+  responder (11:10 → 11:39). Nas duas runs houve respostas de 16, 20, 29 e 34
+  minutos. No pi, com o mesmo modelo, o maior turno nunca passou de ~15 mil
+  caracteres de raciocínio.
+- **Pedidos paralelos cortados.** Enquanto o pedido principal corria, o
+  Ollama registou *"aborting completion request due to client closing the
+  connection"* às 11:16, 11:22, 11:28 e 11:34 — pedidos secundários do Claude
+  Code ao mesmo modelo (o stderr regista pelo menos um, `generate_session_title`),
+  cortados de 6 em 6 minutos. Com `OLLAMA_NUM_PARALLEL=4` estes pedidos
+  disputam a GPU com o principal. No pi: 65 pedidos, 0 cortes.
+- **A run 2 do v2 morreu por erro do harness**, não do modelo: dois pedidos de
+  ~52 mil tokens cancelados pelo cliente aos ~3 min 15 s, e o Claude Code
+  terminou com *"API Error: The response stopped arriving"*.
+
+Por confirmar: qual dos timeouts do Claude Code corta (existem
+`CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`, `CLAUDE_STREAM_IDLE_TIMEOUT_MS`,
+`CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS` e `API_TIMEOUT_MS`), e se desligar os
+pedidos secundários mudaria o resultado.
+
+### 3.4 No a1-bugfix
 
 | Harness (`qwen3.8`) | Tempo | Turnos | K |
 |---|---|---|---|
@@ -187,7 +243,12 @@ amostras, fonte `amdgpu_ppt`), `qwen3.8` em claude-code:**
 | a1-bugfix, 3 | pass | 813 s | 118.4 W | **26.7 Wh** | 94 °C |
 | v1/v2/v3, 6 runs | timeout | 3000 s | 119.2 W | **99.3–99.4 Wh cada** | 88–90 °C |
 
-Um timeout custa ~99 Wh ao SoC sem produzir nada. Isto é só o SoC: não inclui
+Um timeout custa ~99 Wh ao SoC sem produzir nada.
+
+Com o `qwen3.8-t02` no pi (`power-pi-t02-v3a1-20260925.csv`): a1-bugfix com
+**2.8–3.9 Wh** por pass (91–123 s a ~113 W), contra 16.0–26.7 Wh do `qwen3.8`
+no claude-code para o mesmo pass — **5 a 7 vezes menos energia** pelo mesmo
+resultado. v3-viriato: 56.7 e 93.8 Wh nos dois passes, 99.3 Wh no timeout. Isto é só o SoC: não inclui
 RAM, SSD, ventoinhas nem perdas da fonte, por isso o consumo na tomada é maior.
 O lado Claude não tem medida equivalente: corre na cloud.
 
@@ -232,8 +293,8 @@ em parte, uma medida do timeout.
   p = 0.23).
 - **"O local iguala o frontier."** O Claude fez 12/12 limpos em 124–515 s. O
   local, no melhor caso, 9/12 nas tarefas visuais, 2 a 6 vezes mais lento.
-- **"A 0.2 o local resolve"**, em geral. Só foi medido no pi, pi-sol e
-  prime-agent. O claude-code a 0.2 nunca correu.
+- **"A 0.2 o local resolve"**, em geral. Resolve nos harnesses leves; no
+  claude-code deu 0/6 limpos (§3.3).
 - **Nada sobre o v3-viriato local a 0.2** — nunca correu. O único pass local no
   v3 (`qwen3.8-flash-next`) foi fora de tempo.
 - **Nada sobre energia** (§6.3), nem sobre "sem raciocínio" (§6.1).
@@ -245,9 +306,21 @@ em parte, uma medida do timeout.
 | ~~1~~ | ~~`qwen3.8` em claude-code até K=3~~ | **Feito a 2026-09-24** (§1). |
 | ~~2~~ | ~~Corrigir o `monitor.py`~~ | **Feito a 2026-09-24** (§6.3). A energia passa a ser medida nas próximas runs; as anteriores continuam sem ela. |
 | ~~3~~ | ~~Incluir o `batch_id` nas pastas e logs~~ | **Feito a 2026-09-24** (§6.2). |
-| 4 | claude-code + `qwen3.8-t02`, v1 e v2, K=3 | Separa o efeito da temperatura do efeito do harness. |
-| 5 | v3 e a1 com `qwen3.8-t02` | O resultado principal só está medido em 2 das 4 tarefas. |
+| ~~4~~ | ~~claude-code + `qwen3.8-t02`~~ | **Feito a 2026-09-25** (§3.3): 0/6, o harness conta. |
+| ~~5~~ | ~~v3 e a1 com `qwen3.8-t02`~~ | **Feito a 2026-09-25 no pi** (§2): a1 3/3, v3 2/3. |
 | 6 | Um teste real de "sem raciocínio" | O `pi-off-v1` não o testou (§6.1). Precisa de `reasoning_effort: none` enviado ao Ollama. |
+
+### Memória: correção à explicação do OOM
+
+O `PROTOCOL.md` §2.3 atribui o OOM de 2026-09-22 a três tags carregadas ao
+mesmo tempo. Os dados do dia seguinte mostram que isso não chega: a
+2026-09-23 às 13:53, **com a máquina acabada de reiniciar e nenhum outro
+modelo em memória**, carregar o `qwen3-coder-t02` levou a RAM a **110.2 GiB**
+durante 16 s (`power-queue3-20260923.csv`). O OOM de 2026-09-22 aconteceu
+exatamente ao carregar esse modelo. Picos das outras filas, um modelo de
+cada vez: 45.8–52.8 GiB. **O `qwen3-coder`, sozinho, com contexto de 262144 e
+4 slots paralelos, chega perto do limite da máquina.** Não voltar a corrê-lo
+sem baixar `num_ctx` ou `OLLAMA_NUM_PARALLEL`.
 
 Infraestrutura: pico de 50 GiB de RAM nas corridas com um modelo de cada vez,
 contra os 110 GiB do OOM de 2026-09-22 (`PROTOCOL.md` §2.3).
