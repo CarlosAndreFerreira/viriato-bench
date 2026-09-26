@@ -205,16 +205,16 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 10 ANALYSIS PARALYSIS -->
-<section class="slide" data-time="19:30–22:00" data-anim="paralysis" data-notes="<b>19:30–22:00.</b> Why were the directories empty? The model never acted. Left: a real run (pi, stock temperature, v2): 113,162 characters of reasoning in one turn, zero tool calls, killed at 3000 s. Right: the same model at temperature 0.2 on v1: 18 turns, largest turn about 10k characters, clean pass. The literature has a name for this: Cuadron et al. 2025 call it Analysis Paralysis, and show on SWE-bench Verified that higher overthinking correlates with lower success.">
+<section class="slide" data-time="19:30–22:00" data-anim="paralysis" data-notes="<b>19:30–22:00.</b> Why were the directories empty? The model never acted. Left: a real run (pi, stock qwen3.8 tag, v2): 113,162 characters of reasoning in one turn, zero tool calls, killed at 3000 s. Right: the same weights under the qwen3.8-t02 tag on v1 (which, as the next slide shows, did not actually change the temperature): 18 turns, largest turn about 10k characters, clean pass. The literature has a name for this: Cuadron et al. 2025 call it Analysis Paralysis, and show on SWE-bench Verified that higher overthinking correlates with lower success.">
   <div class="kicker">Failure anatomy</div>
   <h2>The model didn't answer wrong. It never acted.</h2>
   <div class="row">
-    <div class="col card"><h3 class="fail">Stock temperature 1.0 · pi · v2</h3>
+    <div class="col card"><h3 class="fail"><code>qwen3.8</code> · pi · v2</h3>
       <div class="big fail" id="parA">0</div><div class="stat-l">characters of reasoning in a single turn</div>
       <div class="row" style="margin-top:20px;gap:40px"><div><div class="stat" id="parA2">0</div><div class="stat-l">tool calls</div></div><div><div class="stat">0</div><div class="stat-l">files written</div></div><div><div class="stat fail">3000 s</div><div class="stat-l">killed by timeout</div></div></div>
       <div id="parAticks" style="margin-top:22px;height:40px;background:var(--panel2);border-radius:8px;position:relative;overflow:hidden"><i style="position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5b2330,#ff5c7a);transition:width 3.2s linear"></i></div>
     </div>
-    <div class="col card"><h3 class="pass">Temperature 0.2 · pi · v1</h3>
+    <div class="col card"><h3 class="pass"><code>qwen3.8-t02</code> · pi · v1</h3>
       <div class="big pass" id="parB">0</div><div class="stat-l">turns (write → run → fix), largest turn ≈ 10k chars</div>
       <div class="row" style="margin-top:20px;gap:40px"><div><div class="stat">17</div><div class="stat-l">tool calls</div></div><div><div class="stat">1</div><div class="stat-l">index.html</div></div><div><div class="stat pass">1280 s</div><div class="stat-l">clean pass</div></div></div>
       <div id="parBticks" style="margin-top:22px;height:40px;background:var(--panel2);border-radius:8px;position:relative;display:flex;gap:3px;padding:6px"></div>
@@ -224,21 +224,24 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
   <div class="src rv">Cuadron et al., "The Danger of Overthinking: Examining the Reasoning-Action Dilemma in Agentic Tasks", arXiv:2502.08235 (2025) · our runs: pi-qwen-v2-solar-1, pi-qwen3.8-t02-v1-polygon-1</div>
 </section>
 
-<!-- 11 TEMPERATURE -->
-<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> One Modelfile line: temperature 1.0 → 0.2. Matched comparison — same harnesses (pi, pi-sol), same tasks (v1, v2): 0/5 → 9/12 clean, Fisher p = 0.009. This is the only significant sampling result we have. Then the honest part: Qwen's own model card recommends temperature 1.0 for thinking mode, and Qwen's docs say never use greedy decoding (temperature 0). So 0.2 is a deliberate deviation from vendor guidance that worked on these tasks — not a general law. Also tested: presence_penalty 1.5 at temp 1.0 gave only a late pass (18 turns).">
-  <div class="kicker">One line in a Modelfile</div>
-  <h2><code>temperature 1.0 → 0.2</code> — the same model starts acting</h2>
+<!-- 11 TEMPERATURE (corrected 2026-09-26, RESULTS.md 6.7) -->
+<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> This slide used to say one Modelfile line, temperature 1.0 to 0.2, unlocked the model. That was wrong, and the way we found out is the point. The two tags on pi and pi-sol really did go 0/5 to 9/12, p = 0.009. But pi talks to Ollama through the OpenAI-compatible endpoint and never sends a temperature, and that endpoint ignores the Modelfile temperature. Proof: a tag with temperature 0 gives 1 distinct answer in 8 on Ollama's native API and 8 in 8 on /v1. So both arms ran with the same sampling: the difference is real, but it is not temperature. What else differed: PI_THINKING (high/off vs medium) and the dates — cause open. The only harness where 0.2 actually reached the model is Claude Code, which uses /v1/messages: 0/6 at 1.0, 0/6 at 0.2 — no effect seen. Lesson: capture the request; a config file is a claim, not a measurement. A retest with the temperature sent explicitly (opencode, K=3 per arm) is running.">
+  <div class="kicker">Correction · one line in a Modelfile</div>
+  <h2><code>temperature 0.2</code> never reached the model</h2>
   <div class="row">
-    <div class="col card rv"><h3>pi + pi-sol, v1 + v2 (matched)</h3>
-      <p class="small muted" style="margin:6px 0 10px">clean passes</p>
-      <div class="small">temperature 1.0 (vendor default)</div><div class="bar"><i data-w="0" style="background:var(--fail)"></i><b class="fail">0/5</b></div>
-      <div class="small" style="margin-top:16px">temperature 0.2</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
-      <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.009</b>. All 16 visual runs at temperature 1.0, any harness: <b class="fail">0 clean</b>.</p></div>
-    <div class="col card rv" style="border-color:var(--late)"><h3 class="late">…against the vendor's own advice</h3>
-      <div class="quote small">Thinking mode: <code>temperature=1.0, top_p=0.95, top_k=20</code></div><div class="src">Qwen/Qwen3.8-27B model card, Hugging Face</div>
-      <div class="quote small" style="margin-top:14px">"DO NOT use greedy decoding, as it can lead to performance degradation and endless repetitions."</div><div class="src">Qwen3 documentation (quickstart)</div>
-      <p class="small" style="margin-top:14px">So 0.2 is a <b>deliberate deviation</b> that worked on these tasks — not a general rule. Temperature 0 was not tested. <code>presence_penalty 1.5</code> at 1.0: one late pass only.</p></div>
+    <div class="col card rv"><h3>pi + pi-sol, v1 + v2 · clean passes</h3>
+      <p class="small muted" style="margin:6px 0 10px">what we measured, by Ollama tag</p>
+      <div class="small"><code>qwen3.8</code> (Modelfile 1.0)</div><div class="bar"><i data-w="0" style="background:var(--fail)"></i><b class="fail">0/5</b></div>
+      <div class="small" style="margin-top:16px"><code>qwen3.8-t02</code> (Modelfile 0.2)</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
+      <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.009</b> — a real difference between the batches, but <b class="fail">both arms ran with the same sampling</b>. Still different: <code>PI_THINKING</code> (high/off vs medium) and the dates. Cause open.</p></div>
+    <div class="col card rv" style="border-color:var(--late)"><h3 class="late">Why: Ollama's <code>/v1</code> drops the Modelfile temperature</h3>
+      <p class="small" style="margin:6px 0 8px">Tag with <code>temperature 0</code>, same prompt 8×, distinct answers:</p>
+      <div class="small"><code>/api/chat</code> (native)</div><div class="bar"><i data-w="12.5" style="background:var(--pass)"></i><b class="pass">1/8</b></div>
+      <div class="small" style="margin-top:12px"><code>/v1/chat/completions</code> (pi, opencode)</div><div class="bar"><i data-w="100" style="background:var(--fail)"></i><b class="fail">8/8</b></div>
+      <p class="small" style="margin-top:14px">pi sends no <code>temperature</code> (request captured). Where 0.2 <i>did</i> arrive — Claude Code, <code>/v1/messages</code>: <b>0/6</b> at 1.0 vs <b>0/6</b> at 0.2. No effect seen.</p>
+      <p class="tiny" style="margin-top:10px">Qwen's model card recommends 1.0 for thinking mode anyway. Retest with the temperature sent explicitly (opencode, K=3 per arm): running.</p></div>
   </div>
+  <div class="src rv">RESULTS.md §6.7 · verify/ollama_v1_temperature_probe.py · Ollama 0.33.3</div>
 </section>
 
 <!-- 12 PRETTY != CORRECT -->
@@ -268,13 +271,13 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 14 HARNESS GAP -->
-<section class="slide" data-time="29:30–31:00" data-anim="bars" data-notes="<b>29:30–31:00.</b> Same model file, same temperature 0.2, same tasks — only the harness changes. pi and pi-sol: 9/12 clean on v1+v2. Claude Code: 0/6. Fisher p = 0.0045. So the temperature result holds in lightweight harnesses, not in Claude Code as shipped. The next three slides are the investigation of why.">
-  <div class="kicker">Same model · same temperature · same tasks</div>
+<section class="slide" data-time="29:30–31:00" data-anim="bars" data-notes="<b>29:30–31:00.</b> Same model tag, same tasks — only the harness changes. pi and pi-sol: 9/12 clean on v1+v2. Claude Code: 0/6. Fisher p = 0.0045. Caveat from slide 11: sampling was not identical — Claude Code really ran at 0.2, pi at Ollama's /v1 default. pi won without the low temperature, so this strengthens the harness point rather than weakening it. The next three slides are the investigation of why.">
+  <div class="kicker">Same model tag · same tasks · different harness</div>
   <h2>Change only the harness: 9/12 becomes 0/6</h2>
   <div class="card rv" style="max-width:1100px">
     <div class="small">pi + pi-sol · qwen3.8-t02 · v1 + v2</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
     <div class="small" style="margin-top:18px">Claude Code (defaults) · qwen3.8-t02 · v1 + v2</div><div class="bar"><i data-w="0" style="background:var(--fail)"></i><b class="fail">0/6</b></div>
-    <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.0045</b>. In Claude Code: v1 three empty directories; v2 one late pass, one harness error ("API Error: The response stopped arriving"), one empty directory.</p>
+    <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.0045</b>. Sampling differed (slide 11): Claude Code ran at 0.2, pi at the <code>/v1</code> default. In Claude Code: v1 three empty directories; v2 one late pass, one harness error ("API Error: The response stopped arriving"), one empty directory.</p>
   </div>
   <div class="row rv" style="margin-top:22px">
     <div class="col card tight"><p class="small"><b>Known result:</b> the agent–computer interface changes performance with the same model — Yang et al., <i>SWE-agent</i>, arXiv:2405.15793.</p></div>
@@ -304,7 +307,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 17 PRIME & SOL-PI -->
-<section class="slide" data-time="37:30–40:00" data-anim="dots" data-notes="<b>37:30–40:00.</b> Two quick harness results. Prime-agent replaces all tools with one persistent IPython REPL. Same model, same temperature: its largest reasoning turn was 54k–93k characters in all three runs, versus at most 22k for pi and pi-sol — complete separation, p = 0.012. But clean passes (1/3 vs 5/6) are not significantly different, p = 0.23: behaviour changed, outcome not proven. SoL-Pi (NVIDIA): the paper reports 44.7–49.0% less token traffic on EdgeBench with GPT-5.6 Sol and Opus 5. On our local model it loaded but never acted: 0 of 44 edits used then_run, its two tools were never called, no artifacts in 9 sessions. Why is a hypothesis: optional fields unused by a 27B model, and our sessions were too short for the passive mechanisms.">
+<section class="slide" data-time="37:30–40:00" data-anim="dots" data-notes="<b>37:30–40:00.</b> Two quick harness results. Prime-agent replaces all tools with one persistent IPython REPL. Same model tag, same endpoint, so the same sampling: its largest reasoning turn was 54k–93k characters in all three runs, versus at most 22k for pi and pi-sol — complete separation, p = 0.012. But clean passes (1/3 vs 5/6) are not significantly different, p = 0.23: behaviour changed, outcome not proven. SoL-Pi (NVIDIA): the paper reports 44.7–49.0% less token traffic on EdgeBench with GPT-5.6 Sol and Opus 5. On our local model it loaded but never acted: 0 of 44 edits used then_run, its two tools were never called, no artifacts in 9 sessions. Why is a hypothesis: optional fields unused by a 27B model, and our sessions were too short for the passive mechanisms.">
   <div class="kicker">Two harness results — one behavioural, one null</div>
   <h2>The scaffold changes how much the model thinks</h2>
   <div class="row" style="flex:1;min-height:0">
@@ -328,7 +331,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
   <div class="row" style="margin-top:18px">
     <div class="col card tight rv"><div class="stat">~15 W</div><div class="stat-l">idle SoC · ~113–120 W under inference</div></div>
     <div class="col card tight rv"><div class="stat pass">2.8–3.9 Wh</div><div class="stat-l">per a1 fix · pi · qwen3.8-t02 (91–123 s)</div></div>
-    <div class="col card tight rv"><div class="stat">16–27 Wh</div><div class="stat-l">per a1 fix · Claude Code · stock Qwen (different harness <i>and</i> temperature)</div></div>
+    <div class="col card tight rv"><div class="stat">16–27 Wh</div><div class="stat-l">per a1 fix · Claude Code · stock Qwen (different harness; sampling not proven equal)</div></div>
     <div class="col card tight rv"><div class="stat fail">~99 Wh</div><div class="stat-l">per 50-min timeout, zero output</div></div>
   </div>
 </section>
@@ -401,7 +404,7 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
       <li class="rv">Claude Opus 5: 12/12 at high, 11/12 at the pre-registered medium, 25% cheaper.</li>
       <li class="rv">Stock Qwen3.8 in Claude Code: a1 3/3, visual <b>0/9</b> (p = 0.00002) — no file written.</li>
       <li class="rv">The failure is <b>analysis paralysis</b>: up to 122k reasoning characters, 0 tool calls.</li>
-      <li class="rv">Temperature 0.2 unlocked it in light harnesses: 0/5 → 9/12 (p = 0.009) — against the vendor's recommended 1.0.</li>
+      <li class="rv">In light harnesses the <code>-t02</code> tag went 0/5 → 9/12 (p = 0.009) — but 0.2 never reached the model (Ollama <code>/v1</code>); the cause is open.</li>
       <li class="rv">Claude Code's <b>default request</b>, not its loop, blocked the local model: 1/9 → 3/3 with a lean request (p = 0.018).</li>
       <li class="rv">On a1 the local model on pi matched Claude's wall time (121 vs 136–138 s) for ~3–4 Wh of SoC energy.</li></ol></div>
     <div class="col card"><h3 class="fail">Not supported</h3><ul class="clean small">
@@ -432,7 +435,7 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
 </section>
 
 <!-- 24 Q&A -->
-<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'Why 0.2 if Qwen says 1.0?' → slide 11, it is a measured deviation. 'Is it the harness or the model?' → slide 16. 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
+<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: not shown; where it reached the model (Claude Code) 0/6 vs 0/6, retest running. 'Is it the harness or the model?' → slide 16. 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
   <div class="kicker">Everything is in the repository</div>
   <h2>Questions — and where to check the answers</h2>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
