@@ -213,6 +213,42 @@ Controlos do Claude Code, confirmados na captura:
 | `MAX_THINKING_TOKENS=4000` | `adaptive` | `high` — **não muda o pedido** |
 | `CLAUDE_CODE_DISABLE_THINKING=1` | (retirado) | `high` |
 
+**Teste do esforço** (batch `cc-t02-noness-effmed-k3`, 2026-09-25/26,
+`CC_EFFORT=medium` + `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, v1, K=3).
+Igual ao `cc-t02-noness-k3` em tudo menos no esforço do agente (`high` →
+`medium`). Com `--effort medium` o pedido do título continua em `high`
+(capturado), por isso os pedidos secundários ficaram desligados nos dois. A
+run 3 original perdeu-se quando o PC foi desligado e foi repetida a 2026-09-26
+com a mesma configuração (`K_START=3`).
+
+| claude-code + `qwen3.8-t02`, v1 | Run 1 | Run 2 | Run 3 | Limpos | Ficheiro válido |
+|---|---|---|---|---|---|
+| com pedidos secundários, `high` (`cc-t02-k3`) | falha | falha | falha | 0/3 | 0/3 |
+| sem pedidos secundários, `high` (`cc-t02-noness-k3`) | fora de tempo (2158 s) | falha | falha | 0/3 | 1/3 |
+| sem pedidos secundários, **`medium`** | **limpo (1846 s)** | fora de tempo (2162 s) | fora de tempo (2761 s) | **1/3** | **3/3** |
+
+Primeiro turno do agente (duração da primeira resposta no Ollama):
+
+| Esforço | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| `high` | 30 min 47 s | 32 min | 33 min |
+| `medium` | **20 min 39 s** | **11 min 52 s** | 33 min 7 s |
+
+- **O único pass limpo do claude-code com um modelo local numa tarefa visual**
+  saiu desta configuração (run 1, 2330 s).
+- **As três runs a `medium` produziram um `index.html` válido**, contra 1 de 3
+  a `high` e 0 de 3 com pedidos secundários. A direção é consistente em cada
+  passo (tirar o título, baixar o esforço), mas **com K=3 nenhuma diferença é
+  significativa**: 1/3 contra 0/3 limpos, p = 0.5; 3/3 contra 1/3 com
+  ficheiro válido, p = 0.2.
+- O esforço `medium` encurtou o primeiro turno em duas runs e não na terceira
+  (33 min, igual ao `high`). **O Ollama traduz o `effort`** — senão as três
+  seriam iguais às do `high` —, mas o turno longo continua a aparecer.
+- Mesmo na melhor configuração, o claude-code fica atrás do pi com o mesmo
+  modelo (pi 2/3 e pi-sol 3/3 limpos no v1, com primeiros turnos muito mais
+  curtos). A diferença que sobra está no pedido em si: 89 KB e 26 ferramentas
+  contra 10.6 KB e 7.
+
 Por confirmar: qual dos timeouts do Claude Code corta (existem
 `CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`, `CLAUDE_STREAM_IDLE_TIMEOUT_MS`,
 `CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS` e `API_TIMEOUT_MS`), e se desligar os
