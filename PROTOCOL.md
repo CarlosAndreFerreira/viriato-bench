@@ -161,6 +161,36 @@ As runs anteriores a esta data correram sem essa descarga; nas que
 partilharam memória com outra tag, a pressão de memória é uma variável não
 controlada (relevante sobretudo para `qwen3.8-flash-next`, ~94 GB).
 
+### 2.4 Braço opencode: temperatura enviada explicitamente (nota de 2026-09-26)
+
+**Definição, não resultado.** Até esta data o ramo `AGENT=opencode` do
+`bench.sh` nunca correu, e como estava não podia correr: não passava `-m` (o
+opencode usaria o seu modelo por omissão), lia a config do utilizador (que
+injeta as skills de `~/.claude` no prompt) e não produzia JSON.
+
+Ao verificar o pedido com um servidor falso encontrou-se um problema que afeta
+mais do que o opencode: **o `/v1/chat/completions` do Ollama 0.33.3 ignora a
+temperatura do Modelfile quando o pedido não a traz** (prova em `RESULTS.md`
+6.7). O pi, o pi-sol, o prime-agent e o opencode usam esse endpoint; o
+claude-code usa o `/v1/messages`, que a respeita.
+
+O braço opencode fica definido assim:
+
+| | Valor |
+|---|---|
+| Config | gerada por run pelo `bench.sh`, nunca a do utilizador |
+| Endpoint | `/v1/chat/completions`, `@ai-sdk/openai-compatible` |
+| Amostragem | `temperature` e `top_p` lidos de `ollama show <tag> --parameters` e **enviados no pedido** |
+| Ferramentas | `bash`, `edit`, `glob`, `grep`, `read`, `write` (`skill`, `webfetch`, `task`, `todowrite` desligadas) |
+| Isolamento | `--pure`, `OPENCODE_DISABLE_CLAUDE_CODE=1`, `OPENCODE_DISABLE_EXTERNAL_SKILLS=1`, `OPENCODE_DISABLE_PROJECT_CONFIG=1` |
+| Permissões | `--auto` (aprova tudo, como o pi). **Assimetria** face ao `acceptEdits` do claude-code, declarada. |
+| `top_k` | não enviado; o `/v1` não o expõe. Não verificado se o do Modelfile se mantém. Igual nos dois braços. |
+
+Braços: `qwen` (`temperature 1`) contra `qwen3.8-t02` (`temperature 0.2`),
+ambos `top_p 0.95`, v1-polygon e v2-solar, K=3, batch `oc-temp-k3`. Os
+harnesses pi/pi-sol/prime-agent **não** são alterados: as runs já feitas
+ficam como estão e são reinterpretadas em `RESULTS.md` 6.7.
+
 ## 3. Tarefas
 
 Cada tarefa tem: `PROMPT.md` (enviado verbatim aos dois lados), `fixture/`

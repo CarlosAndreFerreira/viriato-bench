@@ -159,8 +159,34 @@ invoke_agent() {
       fi
       ;;
     opencode)
-      [[ "$side" != "claude" ]] && export OPENAI_BASE_URL="$OLLAMA_URL/v1"
-      timeout "$TIMEOUT_S" opencode run "$prompt"
+      # Config propria do bench, gerada por run (nunca a do utilizador):
+      # provider Ollama via /v1/chat/completions, so as ferramentas que os
+      # outros harnesses tambem tem, e a amostragem do Modelfile da tag
+      # enviada EXPLICITAMENTE. Medido a 2026-09-26 (RESULTS.md 6.7): o
+      # /v1/chat/completions do Ollama 0.33.3 ignora a temperatura do
+      # Modelfile quando o pedido nao a traz, e o opencode por omissao nao
+      # a envia mas envia top_p=1. Sem isto o qwen3.8-t02 correria a ~1.
+      # OPENCODE_DISABLE_CLAUDE_CODE: sem ele o opencode injeta as skills de
+      # ~/.claude no prompt de sistema. --auto aprova tudo (como o pi).
+      is_claude_side "$side" && { echo '{"is_error":true,"error":"opencode + lado claude nao configurado"}'; return 1; }
+      local model; model="$(local_model_for "$side")"
+      [[ "$model" == *:* ]] || model="$model:latest"
+      local params temp topp cfg="$PI_EVENTS_FILE.opencode.json"
+      params="$(ollama show "$model" --parameters 2>/dev/null)"
+      temp="${OC_TEMPERATURE:-$(awk '$1=="temperature"{print $2}' <<<"$params")}"
+      topp="${OC_TOP_P:-$(awk '$1=="top_p"{print $2}' <<<"$params")}"
+      [[ -n "$temp" && -n "$topp" ]] || { echo "{\"is_error\":true,\"error\":\"sem temperature/top_p no Modelfile de $model\"}"; return 1; }
+      printf '{\n  "$schema": "https://opencode.ai/config.json",\n  "autoupdate": false,\n  "share": "disabled",\n  "provider": {"ollama": {"npm": "@ai-sdk/openai-compatible", "options": {"baseURL": "%s/v1"},\n    "models": {"%s": {"temperature": true}}}},\n  "tools": {"skill": false, "webfetch": false, "task": false, "todowrite": false},\n  "agent": {"build": {"temperature": %s, "top_p": %s}}\n}\n' \
+        "$OLLAMA_URL" "$model" "$temp" "$topp" > "$cfg"
+      local t0 rc
+      t0=$(( $(date +%s%N) / 1000000 ))
+      env OPENCODE_CONFIG="$cfg" OPENCODE_DISABLE_CLAUDE_CODE=1 OPENCODE_DISABLE_EXTERNAL_SKILLS=1 \
+        OPENCODE_DISABLE_PROJECT_CONFIG=1 OPENCODE_DISABLE_AUTOUPDATE=1 OPENCODE_DISABLE_MODELS_FETCH=1 \
+        timeout "$TIMEOUT_S" opencode run "$prompt" --pure --auto --thinking --format json \
+          -m "ollama/$model" < /dev/null > "$PI_EVENTS_FILE"
+      rc=$?
+      python3 "$ROOT/harness/opencode/oc_summary.py" "$PI_EVENTS_FILE" "$(( $(date +%s%N) / 1000000 - t0 ))" "$rc"
+      return "$rc"
       ;;
     pi|pi-sol|prime-agent)
       # pi-sol = o MESMO pi global + a extensao SoL-Pi da NVIDIA (harness/

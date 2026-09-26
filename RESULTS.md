@@ -1,6 +1,6 @@
 # Resultados
 
-Estado a **2026-09-25**. Números gerados por `python3 score.py` a partir do
+Estado a **2026-09-26**. Números gerados por `python3 score.py` a partir do
 `results.csv`; os logs crus estão em `logs/`. O `PROTOCOL.md` é o pré-registo
 e não muda com o que está aqui. Cada afirmação abaixo indica a prova.
 
@@ -38,6 +38,12 @@ Code 2.1.276; as runs 1, entre 17 e 20 de setembro, com 7.0.0-31 e 2.1.274
 ambientes, a deriva não muda a leitura.
 
 ## 2. Resultado principal: a temperatura desbloqueou o local (nos harnesses leves)
+
+> **Correção de 2026-09-26 (§6.7):** nos harnesses desta secção (pi, pi-sol) a
+> temperatura 0.2 **nunca chegou ao modelo**. O `/v1/chat/completions` do
+> Ollama ignora a temperatura do Modelfile, e os dois braços correram com a
+> mesma amostragem. Os números abaixo estão certos; a atribuição à temperatura
+> não está.
 
 A tag derivada `qwen3.8-t02` só muda a temperatura de 1 para 0.2
 (`harness/ollama/qwen3.8-t02.Modelfile`).
@@ -124,6 +130,10 @@ a mais no prompt. A diferença pi-sol contra pi (5/6 contra 4/6, p = 0.50) é
 ruído, e não pode ser atribuída ao SoL-Pi.
 
 ### 3.3 No claude-code, a temperatura 0.2 não chega
+
+> **Correção de 2026-09-26 (§6.7):** o claude-code é o único harness onde o
+> `qwen3.8-t02` correu de facto a 0.2. No pi correu ao default do `/v1`, por
+> isso a comparação abaixo não é "à mesma temperatura".
 
 Batch `cc-t02-k3`, 2026-09-24/25: o harness do PROTOCOL com `qwen3.8-t02`, a
 mesma tag que passou nos harnesses leves.
@@ -436,6 +446,59 @@ Com `TIMEOUT_S=2400` o local perderia pelo menos 2 passes; com um timeout
 maior, alguns dos 4 passes fora de tempo passariam a limpos. O pass@1 local é,
 em parte, uma medida do timeout.
 
+### 6.7 O `/v1/chat/completions` do Ollama ignora a temperatura do Modelfile
+
+**Medido a 2026-09-26, Ollama 0.33.3.** Quando o pedido não traz
+`temperature`, o endpoint compatível com OpenAI **não usa a do Modelfile**. O
+endpoint nativo (`/api/chat`) e o compatível com Anthropic (`/v1/messages`)
+usam-na. Prova (`verify/ollama_v1_temperature_probe.py`, o mesmo pedido curto
+repetido, raciocínio desligado):
+
+| Tag (temperatura do Modelfile) | Endpoint | Respostas distintas |
+|---|---|---|
+| `minicpm5:2b` derivada, **temperature 0**, sem seed | `/api/chat` | **1/8** |
+| idem | `/v1/chat/completions`, sem `temperature` | **8/8** |
+| idem | `/v1/chat/completions`, `top_p: 1` (o que o opencode envia) | 8/8 |
+| idem | `/v1/messages` (o que o claude-code envia) | **1/6** |
+| `qwen3.8-t02` (**0.2**) | `/api/chat` | 6/8, todas *"I call it the Velvet…"* |
+| idem | `/v1/chat/completions`, sem `temperature` | **8/8, nenhuma igual às do `/api/chat`** |
+| idem | `/v1/chat/completions`, `temperature: 0.2` | 4/8, **3 iguais palavra a palavra** às do `/api/chat` |
+
+A temperatura 0 é o caso limpo: determinística pelo Modelfile, aleatória pelo
+`/v1`. No `qwen3.8-t02`, enviar `temperature: 0.2` explicitamente reproduz as
+frases do endpoint nativo; omiti-la não reproduz nenhuma.
+
+**Quem usa o quê:**
+
+| Harness | Endpoint | Envia `temperature`? | Temperatura efetiva do `qwen3.8-t02` |
+|---|---|---|---|
+| claude-code | `/v1/messages` | não | **0.2** (Modelfile) |
+| pi, pi-sol, prime-agent | `/v1/chat/completions` (`harness/*/models.json`) | não (captura do PROTOCOL 2.2) | **não é 0.2**: é o default do `/v1`, igual ao do `qwen3.8` |
+| opencode (de origem) | `/v1/chat/completions` | não, mas envia `top_p: 1` | idem |
+
+**O que isto invalida:**
+
+1. **O §2 não mede a temperatura.** No pi, pi-sol e prime-agent, `qwen3.8` e
+   `qwen3.8-t02` correram com a mesma amostragem. A diferença 0/5 contra 9/12
+   (p = 0.009) existe entre esses batches, mas **não pode ser atribuída à
+   temperatura**. O que ainda difere entre os braços: `PI_THINKING` (`high`/`off`
+   contra `medium`), as datas (22–23 contra 23–25 de setembro) e o nome da tag.
+   A causa fica em aberto.
+2. **O §3.3 compara temperaturas diferentes, não iguais.** O claude-code correu
+   o `qwen3.8-t02` a 0.2; o pi correu-o ao default do `/v1`. O pi ganhou
+   (9/12 contra 0/6) **sem** a temperatura baixa. Isto reforça que o harness
+   conta, mas a frase "mesma temperatura" estava errada.
+3. **A única comparação de temperatura válida do bench é no claude-code**: v1 e
+   v2, `qwen3.8` 0/6 limpos contra `qwen3.8-t02` 0/6 limpos. Nenhum efeito
+   detetado, e com esse K nenhum efeito pequeno seria detetável.
+
+A correção para o opencode está no `bench.sh` (2026-09-26): o harness lê a
+temperatura e o `top_p` do Modelfile da tag e envia-os explicitamente
+(capturado com `verify/fake_openai_server.py`: `qwen` → `temperature: 1`,
+`qwen3.8-t02` → `temperature: 0.2`, ambos `top_p: 0.95`, mesmas 6
+ferramentas). O pi, o pi-sol e o prime-agent não foram corrigidos: mudá-los
+agora cortava a comparabilidade com as runs já feitas.
+
 ## 7. O que estes números NÃO suportam
 
 - **Ordenar harnesses por taxa de acerto.** Nenhuma comparação entre harnesses
@@ -443,8 +506,8 @@ em parte, uma medida do timeout.
   p = 0.23).
 - **"O local iguala o frontier."** O Claude fez 12/12 limpos em 124–515 s. O
   local, no melhor caso, 9/12 nas tarefas visuais, 2 a 6 vezes mais lento.
-- **"A 0.2 o local resolve"**, em geral. Resolve nos harnesses leves; no
-  claude-code deu 0/6 limpos (§3.3).
+- **"A 0.2 o local resolve".** Nos harnesses leves a 0.2 nunca chegou ao
+  modelo (§6.7); no claude-code, onde chegou, deu 0/6 limpos (§3.3).
 - **Nada sobre o v3-viriato local a 0.2** — nunca correu. O único pass local no
   v3 (`qwen3.8-flash-next`) foi fora de tempo.
 - **Nada sobre energia** (§6.3), nem sobre "sem raciocínio" (§6.1).
