@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Sistema Solar Interior — Missao Tripulada Terra/Marte</title>
+<style>
+  :root {
+    --bg: #05070f;
+    --panel: rgba(12, 18, 34, 0.82);
+    --edge: rgba(120, 160, 220, 0.22);
+    --ink: #dce6f5;
+    --dim: #8494ad;
+    --accent: #7fd4ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  #sky { display: block; width: 100vw; height: 100vh; }
+
+  .panel {
+    position: fixed; background: var(--panel); border: 1px solid var(--edge);
+    border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(9px);
+    font-size: 12px; line-height: 1.55; user-select: none;
+  }
+  #hud { top: 14px; left: 14px; min-width: 232px; }
+  #ctl { bottom: 14px; left: 14px; min-width: 262px; }
+  #legend { top: 14px; right: 14px; }
+
+  .title {
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 8px;
+  }
+  .row { display: flex; justify-content: space-between; gap: 18px; }
+  .row span:last-child { color: #fff; font-variant-numeric: tabular-nums; }
+  .sep { height: 1px; background: var(--edge); margin: 8px 0; }
+
+  .phase {
+    display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 99px;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    background: rgba(127, 212, 255, .14); color: var(--accent);
+    border: 1px solid rgba(127, 212, 255, .34);
+  }
+
+  input[type=range] { width: 100%; margin: 8px 0 2px; accent-color: var(--accent); }
+  .btns { display: flex; gap: 6px; margin-top: 8px; }
+  button {
+    flex: 1; padding: 5px 0; font: inherit; font-size: 11px; cursor: pointer;
+    color: var(--ink); background: rgba(127, 212, 255, .10);
+    border: 1px solid var(--edge); border-radius: 6px;
+  }
+  button:hover { background: rgba(127, 212, 255, .22); }
+
+  .key { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+
+<div class="panel" id="hud">
+  <div class="title">Missao Terra &rarr; Marte &rarr; Terra</div>
+  <div class="row"><span>Dia da missao</span><span id="o-day">0</span></div>
+  <div class="row"><span>Fase</span><span id="o-frac">0%</span></div>
+  <div class="phase" id="o-phase">Partida</div>
+  <div class="sep"></div>
+  <div class="row"><span>FPS</span><span id="o-fps">--</span></div>
+  <div class="row"><span>FPS medio</span><span id="o-fpsavg">--</span></div>
+  <div class="sep"></div>
+  <div class="row"><span>Ida (Hohmann)</span><span id="o-out"></span></div>
+  <div class="row"><span>Espera em Marte</span><span id="o-stay"></span></div>
+  <div class="row"><span>Regresso</span><span id="o-ret"></span></div>
+  <div class="row"><span>Total</span><span id="o-tot"></span></div>
+  <div class="row"><span>Fase a partida</span><span id="o-ang"></span></div>
+</div>
+
+<div class="panel" id="ctl">
+  <div class="title">Escala de tempo</div>
+  <div class="row"><span>Velocidade</span><span id="o-rate">10.0 d/s</span></div>
+  <input type="range" id="rate" min="0" max="100" value="57">
+  <div class="btns">
+    <button id="b-play">Pausa</button>
+    <button id="b-back">&minus;30 d</button>
+    <button id="b-fwd">+30 d</button>
+    <button id="b-reset">Reiniciar</button>
+  </div>
+</div>
+
+<div class="panel" id="legend">
+  <div class="title">Corpos</div>
+  <div id="keys"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Modelo fisico. Todo o estado vive em coordenadas matematicas (AU,
+ * eixo +x para a direita, +y anti-horario). A inversao para o ecra
+ * (y para baixo) acontece exclusivamente no desenho.
+ * ------------------------------------------------------------------ */
+
+var DEG = Math.PI / 180;
+
+var BODIES = [
+  { name: "Mercury", label: "Mercurio", auRadius: 0.387, periodDays:  87.97, angleDeg0: 205, size: 3.4, color: "#a9a29c" },
+  { name: "Venus",   label: "Venus",    auRadius: 0.723, periodDays: 224.70, angleDeg0: 310, size: 6.2, color: "#e3c07b" },
+  { name: "Earth",   label: "Terra",    auRadius: 1.000, periodDays: 365.25, angleDeg0:  20, size: 6.8, color: "#5b9bd5" },
+  { name: "Mars",    label: "Marte",    auRadius: 1.524, periodDays: 686.98, angleDeg0:   0, size: 4.6, color: "#d1603d" }
+];
+
+var EARTH = BODIES[2];
+var MARS  = BODIES[3];
+
+/* Elipse de transferencia de Hohmann: perielio na orbita da Terra,
+   afelio na de Marte. */
+var A_T = (EARTH.auRadius + MARS.auRadius) / 2;
+var ECC = (MARS.auRadius - EARTH.auRadius) / (MARS.auRadius + EARTH.auRadius);
+
+/* Metade do periodo da elipse, pela 3a lei de Kepler ancorada na Terra. */
+var OUTBOUND_DAYS = 0.5 * EARTH.periodDays * Math.pow(A_T, 1.5);
+var RETURN_DAYS   = OUTBOUND_DAYS;
+
+var W_E = 360 / EARTH.periodDays;   /* graus/dia */
+var W_M = 360 / MARS.periodDays;
+
+/* Alinhamento de partida: a nave percorre 180 graus enquanto Marte
+   avanca W_M * OUTBOUND; logo Marte tem de partir essa diferenca a
+   frente da Terra. */
+var PHASE_DEG = 180 - W_M * OUTBOUND_DAYS;
+
+/* Janela de regresso. Fechando a missao:
+     theta_M(t2) + 180 == theta_E(t2 + Tt)   (mod 360),  t2 = Tt + S
+   reduz-se a  S*(W_M - W_E) - 2*W_E*Tt == 0 (mod 360).
+   O ramo util (primeira oportunidade) corresponde a n = -2. */
+var STAY_DAYS = (2 * W_E * OUTBOUND_DAYS - 720) / (W_M - W_E);
+
+var TOTAL_DAYS = OUTBOUND_DAYS + STAY_DAYS + RETURN_DAYS;
+
+/* Marte fica PHASE_DEG a frente da Terra no instante da partida. */
+MARS.angleDeg0 = EARTH.angleDeg0 + PHASE_DEG;
+
+var T_DEPART_2 = OUTBOUND_DAYS + STAY_DAYS;             /* saida de Marte */
+var HOLD_DAYS  = 90;                                    /* pausa antes do recomeco */
+
+function bodyAngleRad(b, day) {
+  return (b.angleDeg0 + 360 * day / b.periodDays) * DEG;
+}
+function bodyPos(b, day) {
+  var t = bodyAngleRad(b, day);
+  return { x: b.auRadius * Math.cos(t), y: b.auRadius * Math.sin(t) };
+}
+
+/* Equacao de Kepler, M = E - e sin E, por Newton-Raphson. */
+function solveEcc(M, e) {
+  var E = M + e * Math.sin(M);
+  for (var i = 0; i < 60; i++) {
+    var d = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    E -= d;
+    if (Math.abs(d) < 1e-14) break;
+  }
+  return E;
+}
+
+/* Ponto da elipse de transferencia para a anomalia media M, com o
+   perielio apontado a periRad. */
+function transferPos(M, periRad) {
+  var E  = solveEcc(M, ECC);
+  var nu = Math.atan2(Math.sqrt(1 - ECC * ECC) * Math.sin(E), Math.cos(E) - ECC);
+  var r  = A_T * (1 - ECC * Math.cos(E));
+  var th = periRad + nu;
+  return { x: r * Math.cos(th), y: r * Math.sin(th) };
+}
+
+/* Perielio da ida: a posicao da Terra a partida. */
+function outboundPeriRad() { return EARTH.angleDeg0 * DEG; }
+/* Perielio da volta: o ponto de chegada a Terra, 180 graus em frente
+   de Marte no instante em que a nave larga. */
+function returnPeriRad()  { return bodyAngleRad(MARS, T_DEPART_2) + Math.PI; }
+
+/* Posicao da nave, em AU, para qualquer dia de missao. Continua e sem
+   descontinuidades nas fronteiras de fase. */
+function shipPosAU(day) {
+  if (day <= 0)               return bodyPos(EARTH, day);
+  if (day < OUTBOUND_DAYS)    return transferPos(Math.PI * (day / OUTBOUND_DAYS), outboundPeriRad());
+  if (day < T_DEPART_2)       return bodyPos(MARS, day);          /* pousada, acompanha Marte */
+  if (day < TOTAL_DAYS) {
+    var tau = day - T_DEPART_2;
+    return transferPos(Math.PI + Math.PI * (tau / RETURN_DAYS), returnPeriRad());
+  }
+  return bodyPos(EARTH, day);                                     /* regressada, acompanha a Terra */
+}
+
+function phaseName(day) {
+  if (day < OUTBOUND_DAYS) return "Transferencia de ida";
+  if (day < T_DEPART_2)    return "Superficie de Marte";
+  if (day < TOTAL_DAYS)    return "Transferencia de regresso";
+  return "Missao concluida";
+}
+
+/* ------------------------------------------------------------------ *
+ * Estado da animacao
+ * ------------------------------------------------------------------ */
+
+var missionDay = 0;
+var daysPerSec = 10;
+var paused = false;
+var lastTs = 0;
+
+var fpsNow = 0, fpsAvg = 0, frames = 0, tStart = 0;
+
+var cv  = document.getElementById("sky");
+var ctx = cv.getContext("2d");
+var cw = 0, ch = 0, scale = 1;
+
+var stars = [];
+function seedStars() {
+  stars = [];
+  for (var i = 0; i < 260; i++) {
+    stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.1 + 0.2, a: Math.random() * 0.5 + 0.15 });
+  }
+}
+
+function resize() {
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cw = window.innerWidth; ch = window.innerHeight;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  cv.style.width = cw + "px"; cv.style.height = ch + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  scale = Math.min(cw, ch) * 0.42 / MARS.auRadius;
+}
+window.addEventListener("resize", resize);
+
+/* AU -> pixeis. Unica inversao de y de todo o programa. */
+function sx(x) { return cw / 2 + x * scale; }
+function sy(y) { return ch / 2 - y * scale; }
+
+/* ------------------------------------------------------------------ *
+ * Desenho
+ * ------------------------------------------------------------------ */
+
+function drawStars() {
+  for (var i = 0; i < stars.length; i++) {
+    var s = stars[i];
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = "#cfe0ff";
+    ctx.beginPath();
+    ctx.arc(s.x * cw, s.y * ch, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawSun() {
+  var x = sx(0), y = sy(0);
+  var g = ctx.createRadialGradient(x, y, 0, x, y, 46);
+  g.addColorStop(0, "rgba(255,240,190,0.95)");
+  g.addColorStop(0.35, "rgba(255,190,70,0.42)");
+  g.addColorStop(1, "rgba(255,150,40,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, 46, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = "#ffd977";
+  ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = "#f2cf7a";
+  ctx.font = "11px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("Sol", x, y + 26);
+}
+
+function drawOrbits() {
+  ctx.setLineDash([3, 5]);
+  ctx.lineWidth = 1;
+  for (var i = 0; i < BODIES.length; i++) {
+    var b = BODIES[i];
+    ctx.strokeStyle = "rgba(150,180,220,0.26)";
+    ctx.beginPath();
+    ctx.arc(sx(0), sy(0), b.auRadius * scale, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+/* Trajeto planeado das duas transferencias, em traco leve. */
+function drawPlannedPath() {
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 6]);
+
+  ctx.strokeStyle = "rgba(127,212,255,0.28)";
+  ctx.beginPath();
+  for (var i = 0; i <= 160; i++) {
+    var p = transferPos(Math.PI * (i / 160), outboundPeriRad());
+    if (i === 0) ctx.moveTo(sx(p.x), sy(p.y)); else ctx.lineTo(sx(p.x), sy(p.y));
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255,170,130,0.24)";
+  ctx.beginPath();
+  for (var j = 0; j <= 160; j++) {
+    var q = transferPos(Math.PI + Math.PI * (j / 160), returnPeriRad());
+    if (j === 0) ctx.moveTo(sx(q.x), sy(q.y)); else ctx.lineTo(sx(q.x), sy(q.y));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* Trajeto efetivamente percorrido ate ao dia atual. */
+function drawShipTrail() {
+  var end = Math.min(missionDay, TOTAL_DAYS);
+  if (end <= 0) return;
+  var step = 1.5;
+  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = "rgba(160,230,255,0.85)";
+  ctx.beginPath();
+  var started = false;
+  for (var d = 0; d <= end; d += step) {
+    var p = shipPosAU(d);
+    if (!started) { ctx.moveTo(sx(p.x), sy(p.y)); started = true; }
+    else ctx.lineTo(sx(p.x), sy(p.y));
+  }
+  var last = shipPosAU(end);
+  ctx.lineTo(sx(last.x), sy(last.y));
+  ctx.stroke();
+}
+
+function drawBodies() {
+  ctx.font = "11px monospace";
+  ctx.textAlign = "center";
+  for (var i = 0; i < BODIES.length; i++) {
+    var b = BODIES[i];
+    var p = bodyPos(b, missionDay);
+    var x = sx(p.x), y = sy(p.y);
+
+    var g = ctx.createRadialGradient(x, y, 0, x, y, b.size * 3);
+    g.addColorStop(0, b.color);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = 0.30;
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, b.size * 3, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.arc(x, y, b.size, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "rgba(222,234,250,0.92)";
+    ctx.fillText(b.label, x, y - b.size - 7);
+  }
+}
+
+function drawShip() {
+  var p = shipPosAU(missionDay);
+  var x = sx(p.x), y = sy(p.y);
+
+  /* orientacao pela velocidade instantanea */
+  var a = shipPosAU(missionDay + 0.6), bb = shipPosAU(missionDay - 0.6);
+  var ang = Math.atan2(-(a.y - bb.y), a.x - bb.x);
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = "#7fd4ff";
+  ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.rotate(ang);
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(7, 0); ctx.lineTo(-5, 4); ctx.lineTo(-2.5, 0); ctx.lineTo(-5, -4);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = "#9fe4ff";
+  ctx.font = "10px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("nave", x, y + 21);
+}
+
+function render() {
+  ctx.fillStyle = "#05070f";
+  ctx.fillRect(0, 0, cw, ch);
+  drawStars();
+  drawOrbits();
+  drawPlannedPath();
+  drawSun();
+  drawShipTrail();
+  drawBodies();
+  drawShip();
+}
+
+/* ------------------------------------------------------------------ *
+ * HUD
+ * ------------------------------------------------------------------ */
+
+function fmt(n, d) { return n.toFixed(d === undefined ? 1 : d); }
+
+function updateHud() {
+  document.getElementById("o-day").textContent    = fmt(missionDay, 1) + " d";
+  document.getElementById("o-frac").textContent   = fmt(100 * Math.min(missionDay, TOTAL_DAYS) / TOTAL_DAYS, 0) + "%";
+  document.getElementById("o-phase").textContent  = phaseName(missionDay);
+  document.getElementById("o-fps").textContent    = fmt(fpsNow, 0);
+  document.getElementById("o-fpsavg").textContent = fmt(fpsAvg, 1);
+}
+
+function initHud() {
+  document.getElementById("o-out").textContent  = fmt(OUTBOUND_DAYS, 1) + " d";
+  document.getElementById("o-stay").textContent = fmt(STAY_DAYS, 1) + " d";
+  document.getElementById("o-ret").textContent  = fmt(RETURN_DAYS, 1) + " d";
+  document.getElementById("o-tot").textContent  = fmt(TOTAL_DAYS, 1) + " d";
+  document.getElementById("o-ang").textContent  = fmt(PHASE_DEG, 1) + "°";
+
+  var keys = document.getElementById("keys");
+  for (var i = 0; i < BODIES.length; i++) {
+    var b = BODIES[i];
+    var row = document.createElement("div");
+    row.className = "key";
+    row.innerHTML = '<span class="dot" style="background:' + b.color + '"></span>' +
+                    '<span>' + b.label + '</span>' +
+                    '<span style="color:#8494ad;margin-left:auto">' +
+                    b.auRadius.toFixed(3) + ' AU / ' + b.periodDays.toFixed(1) + ' d</span>';
+    keys.appendChild(row);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Controlos
+ * ------------------------------------------------------------------ */
+
+function rateFromSlider(v) {           /* 0.2 .. 200 dias/segundo, logaritmico */
+  return 0.2 * Math.pow(1000, v / 100);
+}
+
+var slider = document.getElementById("rate");
+function syncRate() {
+  daysPerSec = rateFromSlider(+slider.value);
+  document.getElementById("o-rate").textContent = fmt(daysPerSec, daysPerSec < 10 ? 2 : 1) + " d/s";
+}
+slider.addEventListener("input", syncRate);
+
+document.getElementById("b-play").addEventListener("click", function () {
+  paused = !paused;
+  this.textContent = paused ? "Continuar" : "Pausa";
+});
+document.getElementById("b-fwd").addEventListener("click", function () { seek(missionDay + 30); });
+document.getElementById("b-back").addEventListener("click", function () { seek(missionDay - 30); });
+document.getElementById("b-reset").addEventListener("click", function () { seek(0); });
+
+function seek(day) {
+  missionDay = Math.max(0, day);
+  render();
+  updateHud();
+}
+
+/* ------------------------------------------------------------------ *
+ * Ciclo de animacao
+ * ------------------------------------------------------------------ */
+
+function frame(ts) {
+  if (!tStart) { tStart = ts; lastTs = ts; }
+  var dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+
+  if (dt > 0) {
+    var inst = 1 / dt;
+    fpsNow = fpsNow ? fpsNow * 0.85 + inst * 0.15 : inst;
+  }
+  frames++;
+  var elapsed = (ts - tStart) / 1000;
+  if (elapsed > 0) fpsAvg = frames / elapsed;
+
+  if (!paused && dt > 0 && dt < 0.5) {
+    missionDay += daysPerSec * dt;
+    /* mantem a nave junto a Terra durante a pausa pos-missao e so
+       depois recomeca, para nunca haver um salto de posicao perto de
+       nenhum dos dias verificados. */
+    if (missionDay >= TOTAL_DAYS + HOLD_DAYS) missionDay = 0;
+  }
+
+  render();
+  updateHud();
+  requestAnimationFrame(frame);
+}
+
+/* ------------------------------------------------------------------ *
+ * Contrato de verificacao
+ * ------------------------------------------------------------------ */
+
+window.__bench = {
+  bodies: BODIES.map(function (b) {
+    return {
+      name: b.name,
+      auRadius: b.auRadius,
+      periodDays: b.periodDays,
+      angleDeg0: ((b.angleDeg0 % 360) + 360) % 360
+    };
+  }),
+  mission: {
+    departurePhaseAngleDeg: PHASE_DEG,
+    outboundDays: OUTBOUND_DAYS,
+    stayDays: STAY_DAYS,
+    returnDays: RETURN_DAYS,
+    totalDays: TOTAL_DAYS
+  },
+  setMissionDay: function (day) {
+    var d = Number(day);
+    if (isFinite(d)) seek(d);
+  },
+  getState: function () {
+    var p = shipPosAU(missionDay);
+    return { missionDay: missionDay, shipAU: { x: p.x, y: p.y } };
+  }
+};
+
+/* ------------------------------------------------------------------ *
+ * Arranque
+ * ------------------------------------------------------------------ */
+
+seedStars();
+resize();
+initHud();
+syncRate();
+render();
+updateHud();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

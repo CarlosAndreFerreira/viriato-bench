@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolas em Polígono em Rotação</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <script>
+        // Configuração da simulação
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 600;
+        const CENTER_X = CANVAS_WIDTH / 2;
+        const CENTER_Y = CANVAS_HEIGHT / 2;
+        const POLYGON_RADIUS = 260;
+        const BALL_RADIUS = 14;
+        const BALL_COUNT = 13;
+        const ROTATION_PERIOD = 7; // segundos
+        const GRAVITY = 0.5;
+        const AIR_FRICTION = 0.99;
+        const WALL_FRICTION = 0.9;
+        const BOUNCE_COR = 0.82;
+        const SIMULATION_SPEED = 1;
+
+        // Inicialização do canvas e contexto
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Estado da simulação
+        let state = {
+            t: 0,
+            poly: {
+                n: 9,
+                radius: POLYGON_RADIUS,
+                cx: CENTER_X,
+                cy: CENTER_Y,
+                angle: 0,
+                periodSec: ROTATION_PERIOD
+            },
+            balls: []
+        };
+
+        // Inicializa as bolas no centro
+        function initBalls() {
+            state.balls = [];
+            for (let i = 0; i < BALL_COUNT; i++) {
+                const ball = {
+                    id: i,
+                    x: CENTER_X,
+                    y: CENTER_Y,
+                    r: BALL_RADIUS,
+                    vx: 0,
+                    vy: 0
+                };
+                state.balls.push(ball);
+            }
+        }
+
+        // Calcula vértices do polígono regular
+        function getPolygonVertices(angle) {
+            const vertices = [];
+            for (let i = 0; i < state.poly.n; i++) {
+                const vertexAngle = angle + (i * 2 * Math.PI / state.poly.n);
+                vertices.push({
+                    x: CENTER_X + state.poly.radius * Math.cos(vertexAngle),
+                    y: CENTER_Y + state.poly.radius * Math.sin(vertexAngle)
+                });
+            }
+            return vertices;
+        }
+
+        // Obtem as arestas do polígono
+        function getPolygonEdges(vertices) {
+            const edges = [];
+            for (let i = 0; i < vertices.length; i++) {
+                const next = (i + 1) % vertices.length;
+                edges.push({
+                    start: vertices[i],
+                    end: vertices[next]
+                });
+            }
+            return edges;
+        }
+
+        // Verifica se um ponto está dentro do polígono
+        function isPointInPolygon(x, y, vertices) {
+            let inside = true;
+            const edges = getPolygonEdges(vertices);
+            
+            for (const edge of edges) {
+                const { start, end } = edge;
+                const cross = (end.x - start.x) * (y - start.y) - (end.y - start.y) * (x - start.x);
+                if (cross > 0) {
+                    inside = false;
+                    break;
+                }
+            }
+            
+            return inside;
+        }
+
+        // Normaliza um vetor
+        function normalize(vec) {
+            const length = Math.sqrt(vec.x * vec.x + vec.y * vec.y);
+            if (length === 0) return { x: 0, y: 0 };
+            return { x: vec.x / length, y: vec.y / length };
+        }
+
+        // Produto escalar
+        function dotProduct(a, b) {
+            return a.x * b.x + a.y * b.y;
+        }
+
+        // Calcula distância entre dois pontos
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        // Detecta colisão com aresta do polígono e aplica a resposta físico
+        function handleWallCollision(ball, vertices, edges) {
+            for (const edge of edges) {
+                const { start, end } = edge;
+                
+                // Vetor da aresta
+                const edgeVec = { x: end.x - start.x, y: end.y - start.y };
+                const edgeLength = distance(start.x, start.y, end.x, end.y);
+                
+                if (edgeLength === 0) continue;
+                
+                // Vetor do ponto à aresta
+                const pointToStart = { x: ball.x - start.x, y: ball.y - start.y };
+                
+                // Projeta o ponto sobre a aresta
+                const edgeUnit = normalize(edgeVec);
+                const projLength = dotProduct(pointToStart, edgeUnit);
+                const clampedProjLength = Math.max(0, Math.min(projLength, edgeLength));
+                const nearestPoint = {
+                    x: start.x + clampedProjLength * edgeUnit.x,
+                    y: start.y + clampedProjLength * edgeUnit.y
+                };
+                
+                // Distância do ponto à aresta
+                const dist = distance(ball.x, ball.y, nearestPoint.x, nearestPoint.y);
+                
+                if (dist < ball.r) {
+                    // Vetor normal da aresta
+                    const normal = normalize({ 
+                        x: ball.x - nearestPoint.x, 
+                        y: ball.y - nearestPoint.y 
+                    });
+                    
+                    // Verifica se a bola está dentro do polígono
+                    if (!isPointInPolygon(ball.x, ball.y, vertices)) {
+                        // Move a bola para fora da aresta
+                        const overlap = ball.r - dist;
+                        ball.x += normal.x * overlap;
+                        ball.y += normal.y * overlap;
+                        
+                        // Calcula velocidade relativa à aresta
+                        const edgeVel = { x: 0, y: 0 };
+                        const wallVel = {
+                            x: (end.x - start.x) * 0.5,
+                            y: (end.y - start.y) * 0.5
+                        };
+                        
+                        // Reflete a velocidade com coeficiente de restituição
+                        const dot = dotProduct({ x: ball.vx, y: ball.vy }, normal);
+                        ball.vx = (ball.vx - 2 * dot * normal.x) * BOUNCE_COR + wallVel.x;
+                        ball.vy = (ball.vy - 2 * dot * normal.y) * BOUNCE_COR + wallVel.y;
+                        
+                        // Aplica fricção
+                        ball.vx *= WALL_FRICTION;
+                        ball.vy *= WALL_FRICTION;
+                    }
+                }
+            }
+        }
+
+        // Detecta colisão entre bolas e aplica a resposta físico
+        function handleBallCollision() {
+            for (let i = 0; i < state.balls.length; i++) {
+                for (let j = i + 1; j < state.balls.length; j++) {
+                    const ballA = state.balls[i];
+                    const ballB = state.balls[j];
+                    
+                    const dx = ballB.x - ballA.x;
+                    const dy = ballB.y - ballA.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < ballA.r + ballB.r) {
+                        // Vetor normal
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        
+                        // Velocidade relativa
+                        const dvx = ballB.vx - ballA.vx;
+                        const dvy = ballB.vy - ballA.vy;
+                        
+                        // Velocidade relativa na direção normal
+                        const velocityAlongNormal = dvx * nx + dvy * ny;
+                        
+                        if (velocityAlongNormal > 0) continue; // Bolas se afastando
+                        
+                        // Impulso de colisão
+                        const impulse = 2 * velocityAlongNormal / (1 + 1);
+                        
+                        // Atualiza velocidades com coeficiente de restituição
+                        ballA.vx += impulse * nx * BOUNCE_COR;
+                        ballA.vy += impulse * ny * BOUNCE_COR;
+                        ballB.vx -= impulse * nx * BOUNCE_COR;
+                        ballB.vy -= impulse * ny * BOUNCE_COR;
+                        
+                        // Separar as bolas para evitar sobreposição
+                        const overlap = (ballA.r + ballB.r - distance) / 2;
+                        ballA.x -= overlap * nx;
+                        ballA.y -= overlap * ny;
+                        ballB.x += overlap * nx;
+                        ballB.y += overlap * ny;
+                    }
+                }
+            }
+        }
+
+        // Atualiza a posição das bolas
+        function updateBallPositions(dt) {
+            for (const ball of state.balls) {
+                // Aplica gravidade
+                ball.vy += GRAVITY * dt;
+                
+                // Aplica fricção do ar
+                ball.vx *= AIR_FRICTION;
+                ball.vy *= AIR_FRICTION;
+                
+                // Atualiza posição
+                ball.x += ball.vx * dt * 100;
+                ball.y += ball.vy * dt * 100;
+            }
+        }
+
+        // Limpa o canvas e redesenha a cena
+        function drawScene() {
+            // Limpa canvas
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // Desenha fundo com grade
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < CANVAS_WIDTH; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let i = 0; i < CANVAS_HEIGHT; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(CANVAS_WIDTH, i);
+                ctx.stroke();
+            }
+            
+            // Calcula vértices e arestas do polígono
+            const vertices = getPolygonVertices(state.poly.angle);
+            const edges = getPolygonEdges(vertices);
+            
+            // Desenha o polígono
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < vertices.length; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Desenha as bolas
+            for (const ball of state.balls) {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#4a90e2';
+                ctx.fill();
+                
+                // Sombra da bola
+                ctx.beginPath();
+                ctx.arc(ball.x + 2, ball.y + 2, ball.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fill();
+                
+                // Número da bola
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(ball.id.toString(), ball.x, ball.y);
+            }
+        }
+
+        // Função principal de atualização
+        function update(dt) {
+            if (dt <= 0) return;
+            
+            // Atualiza estado temporal (em segundos)
+            state.t += dt * SIMULATION_SPEED;
+            
+            // Atualiza ângulo do polígono (360 graus em 7 segundos = 2π radianos em 7 segundos)
+            state.poly.angle = (state.t / state.poly.periodSec) * 2 * Math.PI;
+            
+            // Atualiza posições das bolas
+            updateBallPositions(dt);
+            
+            // Calcula vértices e arestas do polígono
+            const vertices = getPolygonVertices(state.poly.angle);
+            const edges = getPolygonEdges(vertices);
+            
+            // Verifica colisões com paredes
+            for (const ball of state.balls) {
+                handleWallCollision(ball, vertices, edges);
+            }
+            
+            // Verifica colisões entre bolas
+            handleBallCollision();
+            
+            // Desenha a cena atual
+            drawScene();
+        }
+
+        // Função de passo manual para testes
+        window.__bench = {
+            getState() {
+                return { ...state };
+            },
+            step(dtSeconds) {
+                update(dtSeconds);
+            }
+        };
+
+        // Inicializa a simulação
+        initBalls();
+        
+        // Loop principal com requestAnimationFrame
+        let lastTime = 0;
+        function mainLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000; // Em segundos
+            lastTime = timestamp;
+            
+            update(dt);
+            
+            requestAnimationFrame(mainLoop);
+        }
+
+        // Inicia o loop principal
+        mainLoop(0);
+    </script>
+</body>
+</html>

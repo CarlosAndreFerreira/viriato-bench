@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viriato Bench — Local vs Frontier</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#131826; --panel2:#1a2133; --line:#2a3350; --text:#e8ecf4; --muted:#9aa4bd;
+  --pass:#3ddc97; --fail:#ff5c7a; --late:#ffb547; --local:#6aa8ff; --claude:#c79bff; --accent:#5ee0ff;
+  --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --sans: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1600px;height:900px;transform-origin:center center}
+.slide{position:absolute;inset:0;padding:64px 80px 70px;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .45s ease}
+.slide.active{opacity:1;pointer-events:auto}
+.kicker{font:600 15px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+h1{font-size:54px;line-height:1.08;font-weight:750;letter-spacing:-.01em}
+h2{font-size:42px;line-height:1.12;font-weight:720;letter-spacing:-.01em;margin-bottom:26px}
+h3{font-size:22px;font-weight:680;margin-bottom:10px}
+p,li{font-size:22px;line-height:1.45;color:var(--text)}
+.muted{color:var(--muted)}
+.small{font-size:17px;line-height:1.45}
+.tiny{font-size:14px;line-height:1.4;color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:.92em}
+.row{display:flex;gap:32px}
+.col{flex:1;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 26px}
+.card.tight{padding:14px 18px}
+ul.clean{list-style:none}
+ul.clean li{padding-left:30px;position:relative;margin:7px 0}
+ul.clean li::before{content:"";position:absolute;left:6px;top:13px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.pass{color:var(--pass)} .fail{color:var(--fail)} .late{color:var(--late)} .loc{color:var(--local)} .cl{color:var(--claude)}
+.tag{display:inline-block;font:600 13px/1 var(--mono);padding:6px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:6px}
+.big{font-size:84px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.stat{font-size:46px;font-weight:780;line-height:1}
+.stat-l{font-size:16px;color:var(--muted);margin-top:8px}
+.frame{width:100%;border:1px solid var(--line);border-radius:14px;background:#000;overflow:hidden;position:relative}
+.frame iframe{width:100%;height:100%;border:0;display:block;background:#000}
+.frame .lab{position:absolute;left:12px;top:10px;z-index:2;font:600 13px/1 var(--mono);background:rgba(0,0,0,.65);padding:6px 10px;border-radius:8px}
+canvas{display:block}
+table.grid{border-collapse:collapse;width:100%;font-size:20px}
+table.grid th,table.grid td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left}
+table.grid th{font:600 14px/1.2 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.pill{font:700 17px/1 var(--mono);padding:7px 11px;border-radius:9px;display:inline-block;min-width:62px;text-align:center}
+.pill.p{background:rgba(61,220,151,.14);color:var(--pass)} .pill.f{background:rgba(255,92,122,.14);color:var(--fail)} .pill.l{background:rgba(255,181,71,.14);color:var(--late)}
+/* staged reveal: children with .rv appear in order when the slide is active */
+.rv{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+.slide.active .rv{opacity:1;transform:none}
+.slide.active .rv:nth-child(1){transition-delay:.05s}.slide.active .rv:nth-child(2){transition-delay:.25s}.slide.active .rv:nth-child(3){transition-delay:.45s}
+.slide.active .rv:nth-child(4){transition-delay:.65s}.slide.active .rv:nth-child(5){transition-delay:.85s}.slide.active .rv:nth-child(6){transition-delay:1.05s}
+.slide.active .rv:nth-child(7){transition-delay:1.25s}.slide.active .rv:nth-child(8){transition-delay:1.45s}.slide.active .rv:nth-child(9){transition-delay:1.65s}
+.bar{height:34px;border-radius:8px;background:var(--panel2);position:relative;overflow:hidden}
+.bar>i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:8px;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+.bar>b{position:absolute;right:12px;top:7px;font:700 18px/1 var(--mono)}
+.quote{border-left:4px solid var(--accent);padding:6px 0 6px 18px;font-size:21px;line-height:1.45;color:#d6ddee}
+.src{font:13px/1.4 var(--mono);color:var(--muted);margin-top:8px}
+#hud{position:fixed;left:0;right:0;bottom:0;height:34px;display:flex;align-items:center;gap:18px;padding:0 18px;font:13px/1 var(--mono);color:var(--muted);background:rgba(11,14,20,.85);border-top:1px solid #1b2236;z-index:20}
+#prog{position:fixed;left:0;bottom:34px;height:3px;background:var(--accent);transition:width .3s;z-index:20}
+#notes{position:fixed;left:0;right:0;bottom:34px;max-height:38vh;overflow:auto;background:#0f1422;border-top:2px solid var(--accent);padding:18px 26px;font:17px/1.55 var(--sans);color:#dfe6f5;display:none;z-index:19}
+#notes.on{display:block}
+#notes b{color:var(--accent)}
+.hint{margin-left:auto}
+.reveal-box{opacity:0;transform:scale(.97);transition:all .4s}
+.reveal-box.on{opacity:1;transform:none}
+kbd{font:600 12px/1 var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:2px 6px;color:var(--text)}
+input[type=number]{background:var(--panel2);border:1px solid var(--line);color:var(--text);font:600 20px var(--mono);padding:8px 10px;border-radius:8px;width:150px}
+label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:8px 0;font-size:18px}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- 1 TITLE -->
+<section class="slide" data-time="00:00–01:00" data-notes="<b>00:00–01:00.</b> Introduce yourself. One sentence: this is a pre-registered benchmark on one mini-PC, four tasks, every number traceable to a CSV line and a raw log. Promise: by the end they will know exactly where a local 27B model breaks, and why — and one of those reasons is not the model.">
+  <div class="kicker">Viriato Bench · pre-registered · Sept 2026</div>
+  <h1 style="font-size:66px;max-width:1300px">Local vs Frontier:<br>what actually breaks when a 27B model does agentic engineering on a mini-PC</h1>
+  <p class="muted" style="margin-top:26px;font-size:26px;max-width:1200px">Qwen3.8-27B on an AMD Ryzen AI MAX+ 395 (128 GB unified memory) against Claude Opus 5 — same tasks, automated verifiers, K = 3 per cell.</p>
+  <div style="margin-top:auto" class="row">
+    <div class="col card rv"><div class="stat cl" data-count="12" data-suffix="/12">0/12</div><div class="stat-l">Claude Opus 5, clean passes (effort high)</div></div>
+    <div class="col card rv"><div class="stat fail" data-count="0" data-suffix="/9">0/9</div><div class="stat-l">Qwen3.8 stock settings, visual tasks</div></div>
+    <div class="col card rv"><div class="stat pass" data-count="3" data-suffix="/3">0/3</div><div class="stat-l">same Qwen, same harness, lean request</div></div>
+  </div>
+</section>
+
+<!-- 2 QUESTION -->
+<section class="slide" data-time="01:00–03:30" data-notes="<b>01:00–03:30.</b> The 'pelican test' and screenshot benchmarks: fun, not measurement. The question we can answer with four tasks is NOT 'is the 27B as good as Claude'. It is: what fraction of real tasks moves to local hardware, at what latency and energy, and where does it break. Two rules: correctness is binary and automated; aesthetics is never scored.">
+  <div class="kicker">The question</div>
+  <h2>Not "is it as good as Claude?" — but <span class="loc">what fraction moves local, at what latency and energy, and where does it break?</span></h2>
+  <div class="row" style="margin-top:10px">
+    <div class="col card rv"><h3>Why screenshots lie</h3><p class="small">A model that draws a nice pelican or a pretty solar system tells you nothing about whether the physics is right. Viral prompts are also memorised: we changed every parameter of the classic "balls in a spinning polygon" prompt.</p></div>
+    <div class="col card rv"><h3>Two rules</h3><ul class="clean small"><li><b>Correctness</b> is binary and checked by code — no 1–5 rubrics.</li><li><b>Clean pass</b> = verifier passes <i>and</i> the agent finished before the 50-minute timeout.</li><li>Every claim → a line in <code>results.csv</code> + a raw log.</li></ul></div>
+    <div class="col card rv"><h3>What we measure</h3><ul class="clean small"><li>pass@1 over K = 3 runs</li><li>wall-clock time per run</li><li>SoC package power (AMD PPT sensor)</li><li>API-equivalent cost (Claude side)</li></ul></div>
+  </div>
+</section>
+
+<!-- 3 RIG & PROTOCOL -->
+<section class="slide" data-time="03:30–06:00" data-notes="<b>03:30–06:00.</b> Walk the rig. Stress: pre-registered on 17 Sep; K=3; clean fixture per run; timeout 3000 s. Then own the deviations up front — this is the credibility move: (1) the protocol pinned effort=medium but Claude Code sends effort=high by default and we never passed the flag, so the whole original grid ran at high; we re-ran Claude at medium (11/12). (2) Kernel and Claude Code CLI updated mid-study. (3) Energy was only measurable from 24 Sep (RAPL is root-only; we switched to the amdgpu PPT sensor).">
+  <div class="kicker">Rig & protocol</div>
+  <h2>One mini-PC, a pre-registered protocol — and the deviations we found in it</h2>
+  <div class="row">
+    <div class="col">
+      <div class="card rv"><h3>Hardware & software</h3><ul class="clean small">
+        <li>AMD Ryzen AI MAX+ 395, Radeon 8060S, 32 threads, 128 GB unified memory (~123 GiB usable)</li>
+        <li>Ollama 0.33.3 · <code>qwen3.8</code> 27B, Q4_K_M, context 262 144</li>
+        <li>Claude Opus 5 via Claude Code (subscription)</li>
+        <li>Harnesses: Claude Code, pi, pi + SoL-Pi, prime-agent</li></ul></div>
+      <div class="card rv" style="margin-top:18px"><h3>Rules (PROTOCOL.md, 17 Sep)</h3><ul class="clean small">
+        <li>K = 3 runs per cell · fresh fixture per run · timeout 3000 s</li>
+        <li>Same prompt, verbatim, for every model and harness</li>
+        <li>Verifiers validated both ways (<code>make check-reference</code>)</li></ul></div>
+    </div>
+    <div class="col">
+      <div class="card rv" style="border-color:var(--late)"><h3 class="late">Deviations we found — and disclose</h3><ul class="clean small">
+        <li><b>Effort:</b> protocol pinned <code>medium</code>; Claude Code sends <code>effort: "high"</code> unless <code>--effort</code> is passed (captured on a fake server). The original grid ran at <b>high</b>. Re-run at medium: <b>11/12</b>, 25% cheaper.</li>
+        <li><b>Drift:</b> kernel 7.0.0-31 → 34, Claude Code 2.1.274 → 2.1.276 mid-study.</li>
+        <li><b>Energy:</b> RAPL is root-only → switched to the <code>amdgpu</code> PPT sensor on 24 Sep. Earlier runs have no energy data.</li>
+        <li><b>Memory:</b> one OOM (22 Sep). Loading <code>qwen3-coder</code> alone peaked at 110 GiB → one model at a time.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 TASK V1 -->
+<section class="slide" data-time="06:00–08:30" data-iframe="1" data-notes="<b>06:00–08:30.</b> This is not a re-implementation: it is the actual index.html the local model wrote (claude-code lean run 2, clean pass in 691 s). Explain the task and then the verifier: it drives the page headless through window.__bench.step(0.05), samples 60 states and fails on any ball outside the polygon (1.5 px tolerance), any overlap (&gt;1 px) or a rotation period off by more than 10%. The page must also declare periodSec = 7.">
+  <div class="kicker">Task v1 · physics in a moving container</div>
+  <h2>A spinning nonagon, 13 balls, no physics library</h2>
+  <div class="row" style="flex:1;min-height:0">
+    <div class="col" style="flex:1.25;display:flex"><div class="frame" style="flex:1"><span class="lab">real output · qwen3.8-t02 · clean pass, 691 s</span><iframe data-src="assets/v1_local_pass.html" title="v1 local pass"></iframe></div></div>
+    <div class="col">
+      <div class="card rv"><h3>The prompt asks for</h3><ul class="clean small"><li>Regular <b>nonagon</b>, radius 260 px, one turn every <b>7 s</b>, clockwise</li><li><b>13 balls</b>, radius 14 px, numbered, spinning</li><li>Gravity, air friction, restitution <b>0.82</b></li><li>Ball–ball and ball–wall collisions with <b>moving walls</b> — the wall's velocity at the contact point matters</li></ul></div>
+      <div class="card rv" style="margin-top:16px"><h3>The verifier checks</h3><ul class="clean small"><li>Deterministic stepping via <code>window.__bench.step(dt)</code>, 60 samples</li><li>No ball outside the polygon (1.5 px tolerance)</li><li>No overlapping balls (&gt; 1 px)</li><li>Measured rotation period within ±10% of 7 s</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 TASK V2 -->
+<section class="slide" data-time="08:30–11:00" data-anim="hohmann" data-notes="<b>08:30–11:00.</b> The animation is ours, computed with the same physics the verifier uses: circular orbits, Kepler's third law, a Hohmann ellipse solved with Kepler's equation. Departure with Mars 44° ahead of Earth; 259-day transfer; 455-day wait; return; total about 970 days. The verifier does not trust the declared numbers: it calls setMissionDay(d) and checks the ship is physically next to Mars on arrival, stays with Mars, and is back at Earth's real position at the end.">
+  <div class="kicker">Task v2 · correct physics under a pretty picture</div>
+  <h2>Inner solar system + a crewed Earth → Mars → Earth mission</h2>
+  <div class="row" style="flex:1;min-height:0">
+    <div class="col" style="flex:1.1;display:flex;align-items:center;justify-content:center"><canvas id="cvHoh" width="700" height="640"></canvas></div>
+    <div class="col">
+      <div class="card rv"><h3>The prompt asks for</h3><ul class="clean small"><li>Mercury, Venus, Earth, Mars on circular orbits at correct relative radii; <b>Mars year ≈ 1.88 Earth years</b></li><li>Launch when Mars is <b>≈ 44° ahead</b> of Earth</li><li>Hohmann transfer <b>≈ 259 days</b>, wait on Mars <b>≈ 455 days</b>, mission <b>≈ 970 days</b></li><li>The ship must reach the <i>planet</i>, not a point on its orbit</li></ul></div>
+      <div class="card rv" style="margin-top:16px"><h3>The verifier checks</h3><ul class="clean small"><li>Radii & periods ±5%, Kepler's 3rd law</li><li>Departure window 44° ± 6°, 259 / 455 / 970 days</li><li><code>setMissionDay(d)</code>: ship position vs the planet's real position on arrival, during the wait and at return (0.35 AU tolerance)</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 TASK V3 -->
+<section class="slide" data-time="11:00–13:00" data-anim="maze" data-notes="<b>11:00–13:00.</b> An original spec, so it cannot be memorised: a procedural maze generator for a Pac-Man-like game. This is the real seed-1 grid generated by the local model's maze.py (clean pass, 1718 s). Nine hard constraints, checked on four seeds: 1, 7, 42, 1234. Point at the castrum (orange) and the single wrap-around tunnel row (blue). The whole grid is mirror-symmetric — the animation builds both halves at once.">
+  <div class="kicker">Task v3 · follow a spec with hard constraints</div>
+  <h2>"Viriato's Maze": a procedural generator with 9 constraints</h2>
+  <div class="row" style="flex:1;min-height:0">
+    <div class="col" style="flex:0 0 470px;display:flex;flex-direction:column;align-items:center"><canvas id="cvMaze" width="448" height="576"></canvas><div class="tiny" style="margin-top:8px">real <code>generate_maze(1)</code> from the local model · 52.6% corridor</div></div>
+    <div class="col">
+      <div class="card"><h3>Constraints (all must hold for seeds 1, 7, 42, 1234)</h3>
+      <ol id="mazeList" class="small" style="padding-left:26px;columns:2;column-gap:36px">
+        <li>36 rows × 28 columns</li><li>Solid border (except the tunnel)</li><li>Mirror symmetry: <code>g[r][c] == g[r][27−c]</code></li><li>No dead ends (every corridor ≥ 2 exits)</li><li>One connected component</li><li><span style="color:#ffb547">Castrum</span>: solid 6×4 block, cols 11–16, rows 15–18, ringed by corridor</li><li><span style="color:#6aa8ff">Exactly one</span> wrap-around tunnel row</li><li>35–60% corridor density</li><li>Deterministic per seed, different across seeds</li></ol>
+      <p class="tiny" style="margin-top:10px">Plus a <code>render(grid)</code> ASCII function. Standard library only.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 TASK A1 -->
+<section class="slide" data-time="13:00–15:00" data-anim="a1" data-notes="<b>13:00–15:00.</b> The live-demo task: a scheduler with a planted two-layer bug. Layer 1: add_months builds date(2026, 2, 31) and crashes. The obvious fix — clamp to the last day — makes 5 of 7 tests pass but leaves the drift test failing, because occurrences chain from the previous date: Jan 31 → Feb 28 → Mar 28 → Apr 28. The real fix anchors every occurrence to the start date. Before scoring we restore the original tests and conftest, so an agent that edits the tests fails.">
+  <div class="kicker">Task a1 · agentic debugging (the live demo)</div>
+  <h2>A recurring-task scheduler with a two-layer bug — 7 pytest tests</h2>
+  <div class="card" style="padding:26px 30px">
+    <div id="a1rows" style="display:grid;grid-template-columns:300px repeat(4,1fr);gap:14px 18px;align-items:center;font:600 21px/1.2 var(--mono)"></div>
+  </div>
+  <div class="row" style="margin-top:22px">
+    <div class="col card rv"><h3 class="fail">Layer 1 — crash</h3><p class="small"><code>add_months(date(2026,1,31), 1)</code> builds <code>date(2026,2,31)</code> → <code>ValueError</code>.</p></div>
+    <div class="col card rv"><h3 class="late">Layer 2 — drift</h3><p class="small">Clamping alone passes 6 of 7 tests. Chaining from the previous date loses the 31st forever: Mar 28, Apr 28…</p></div>
+    <div class="col card rv"><h3 class="pass">Real fix</h3><p class="small">Anchor every occurrence to <code>rec.start</code>: <code>add_months(start, i·interval)</code>. Tests are restored before scoring — editing them fails.</p></div>
+  </div>
+</section>
+
+<!-- 8 SCORING -->
+<section class="slide" data-time="15:00–17:00" data-anim="timeline" data-notes="<b>15:00–17:00.</b> Define the three outcomes with real runs. Clean pass: the lean claude-code run finished at 691 s. Late pass: a run that had a correct file at 2162 s but kept iterating until the 3000 s kill — the checker still passes it, so a naive pass@1 counts it. We never cite late passes as wins. Fail: the checker rejects the file, or no file exists. Then: every checker was validated both ways — reference implementations pass, and real broken runs fail with a physical reason.">
+  <div class="kicker">How we score</div>
+  <h2>Clean pass, late pass, fail — and why the difference matters</h2>
+  <div class="card" style="padding:26px 30px"><canvas id="cvTimeline" width="1380" height="260"></canvas></div>
+  <div class="row" style="margin-top:22px">
+    <div class="col card rv"><h3 class="pass">Clean pass</h3><p class="small">Verifier passes and the agent returned before 3000 s. <b>The only number we cite.</b></p></div>
+    <div class="col card rv"><h3 class="late">Late pass</h3><p class="small">Correct file on disk when the timeout killed the agent. A naive pass@1 counts it; we report it separately.</p></div>
+    <div class="col card rv"><h3>Checkers validated both ways</h3><p class="small">Reference solutions PASS (<code>make check-reference</code>, re-run 24 Sep); real broken runs FAIL with a physical reason (next slides).</p></div>
+  </div>
+</section>
+
+<!-- 9 CORE GRID -->
+<section class="slide" data-time="17:00–19:30" data-anim="bars" data-notes="<b>17:00–19:30.</b> The pre-registered grid, K=3. Claude Opus 5: 12/12 at effort high (the default), 11/12 at the pre-registered medium — the one failure was a NameError (MAX_CORRIDOR never defined) — and 25% cheaper. Stock Qwen3.8 in Claude Code: a1 3/3 but about four times slower; visual tasks 0/9, and in all nine the run directory was empty — not a wrong answer, no answer. 9/9 vs 0/9 is Fisher p = 0.00002.">
+  <div class="kicker">The pre-registered grid · Claude Code harness · K = 3</div>
+  <h2>Frontier vs stock local model</h2>
+  <table class="grid rv">
+    <tr><th>Task</th><th>Claude Opus 5 · high</th><th>Claude Opus 5 · medium</th><th>Qwen3.8 · stock (temp 1.0)</th></tr>
+    <tr><td>a1 bugfix</td><td><span class="pill p">3/3</span> 138 s · $4.12</td><td><span class="pill p">3/3</span> 136 s · $3.02</td><td><span class="pill p">3/3</span> 571 s</td></tr>
+    <tr><td>v1 polygon</td><td><span class="pill p">3/3</span> 429 s · $6.15</td><td><span class="pill p">3/3</span> 348 s · $5.72</td><td><span class="pill f">0/3</span> empty dir</td></tr>
+    <tr><td>v2 solar</td><td><span class="pill p">3/3</span> 458 s · $6.89</td><td><span class="pill p">3/3</span> 435 s · $5.44</td><td><span class="pill f">0/3</span> empty dir</td></tr>
+    <tr><td>v3 maze</td><td><span class="pill p">3/3</span> 486 s · $7.90</td><td><span class="pill l">2/3</span> 309 s · $4.56</td><td><span class="pill f">0/3</span> empty dir</td></tr>
+    <tr><td><b>Total</b></td><td><b class="pass">12/12</b> · $25.06</td><td><b class="pass">11/12</b> · $18.72</td><td><b>3/12</b> (visual <b class="fail">0/9</b>)</td></tr>
+  </table>
+  <p class="tiny rv" style="margin-top:12px">Times are medians. $ = API-equivalent cost reported by Claude Code for subscription runs, summed over 3 runs. Visual 9/9 vs 0/9: Fisher exact p = 0.00002. The medium-effort failure: <code>NameError: MAX_CORRIDOR</code> in all 4 seeds.</p>
+</section>
+
+<!-- 10 ANALYSIS PARALYSIS -->
+<section class="slide" data-time="19:30–22:00" data-anim="paralysis" data-notes="<b>19:30–22:00.</b> Why were the directories empty? The model never acted. Left: a real run (pi, stock temperature, v2): 113,162 characters of reasoning in one turn, zero tool calls, killed at 3000 s. Right: the same model at temperature 0.2 on v1: 18 turns, largest turn about 10k characters, clean pass. The literature has a name for this: Cuadron et al. 2025 call it Analysis Paralysis, and show on SWE-bench Verified that higher overthinking correlates with lower success.">
+  <div class="kicker">Failure anatomy</div>
+  <h2>The model didn't answer wrong. It never acted.</h2>
+  <div class="row">
+    <div class="col card"><h3 class="fail">Stock temperature 1.0 · pi · v2</h3>
+      <div class="big fail" id="parA">0</div><div class="stat-l">characters of reasoning in a single turn</div>
+      <div class="row" style="margin-top:20px;gap:40px"><div><div class="stat" id="parA2">0</div><div class="stat-l">tool calls</div></div><div><div class="stat">0</div><div class="stat-l">files written</div></div><div><div class="stat fail">3000 s</div><div class="stat-l">killed by timeout</div></div></div>
+      <div id="parAticks" style="margin-top:22px;height:40px;background:var(--panel2);border-radius:8px;position:relative;overflow:hidden"><i style="position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5b2330,#ff5c7a);transition:width 3.2s linear"></i></div>
+    </div>
+    <div class="col card"><h3 class="pass">Temperature 0.2 · pi · v1</h3>
+      <div class="big pass" id="parB">0</div><div class="stat-l">turns (write → run → fix), largest turn ≈ 10k chars</div>
+      <div class="row" style="margin-top:20px;gap:40px"><div><div class="stat">17</div><div class="stat-l">tool calls</div></div><div><div class="stat">1</div><div class="stat-l">index.html</div></div><div><div class="stat pass">1280 s</div><div class="stat-l">clean pass</div></div></div>
+      <div id="parBticks" style="margin-top:22px;height:40px;background:var(--panel2);border-radius:8px;position:relative;display:flex;gap:3px;padding:6px"></div>
+    </div>
+  </div>
+  <div class="quote rv" style="margin-top:22px">Reasoning models "favor extended internal reasoning chains over environmental interaction" — <b>Analysis Paralysis</b>; higher overthinking scores correlate with lower performance.</div>
+  <div class="src rv">Cuadron et al., "The Danger of Overthinking: Examining the Reasoning-Action Dilemma in Agentic Tasks", arXiv:2502.08235 (2025) · our runs: pi-qwen-v2-solar-1, pi-qwen3.8-t02-v1-polygon-1</div>
+</section>
+
+<!-- 11 TEMPERATURE -->
+<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> One Modelfile line: temperature 1.0 → 0.2. Matched comparison — same harnesses (pi, pi-sol), same tasks (v1, v2): 0/5 → 9/12 clean, Fisher p = 0.009. This is the only significant sampling result we have. Then the honest part: Qwen's own model card recommends temperature 1.0 for thinking mode, and Qwen's docs say never use greedy decoding (temperature 0). So 0.2 is a deliberate deviation from vendor guidance that worked on these tasks — not a general law. Also tested: presence_penalty 1.5 at temp 1.0 gave only a late pass (18 turns).">
+  <div class="kicker">One line in a Modelfile</div>
+  <h2><code>temperature 1.0 → 0.2</code> — the same model starts acting</h2>
+  <div class="row">
+    <div class="col card rv"><h3>pi + pi-sol, v1 + v2 (matched)</h3>
+      <p class="small muted" style="margin:6px 0 10px">clean passes</p>
+      <div class="small">temperature 1.0 (vendor default)</div><div class="bar"><i data-w="0" style="background:var(--fail)"></i><b class="fail">0/5</b></div>
+      <div class="small" style="margin-top:16px">temperature 0.2</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
+      <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.009</b>. All 16 visual runs at temperature 1.0, any harness: <b class="fail">0 clean</b>.</p></div>
+    <div class="col card rv" style="border-color:var(--late)"><h3 class="late">…against the vendor's own advice</h3>
+      <div class="quote small">Thinking mode: <code>temperature=1.0, top_p=0.95, top_k=20</code></div><div class="src">Qwen/Qwen3.8-27B model card, Hugging Face</div>
+      <div class="quote small" style="margin-top:14px">"DO NOT use greedy decoding, as it can lead to performance degradation and endless repetitions."</div><div class="src">Qwen3 documentation (quickstart)</div>
+      <p class="small" style="margin-top:14px">So 0.2 is a <b>deliberate deviation</b> that worked on these tasks — not a general rule. Temperature 0 was not tested. <code>presence_penalty 1.5</code> at 1.0: one late pass only.</p></div>
+  </div>
+</section>
+
+<!-- 12 PRETTY != CORRECT -->
+<section class="slide" data-time="25:00–28:00" data-iframe="1" data-reveal="1" data-notes="<b>25:00–28:00.</b> Audience vote. Both are real outputs for task v2. Ask: which one is correct? Let them vote on looks. Then press V. A is the local model (qwen3.8-t02 on pi-sol): it animates fine, but the verifier found the ship 1.75 AU from Earth's real position on mission day 972 — the return trip misses the planet. B is Claude Opus 5, clean pass. That single verifier line is the whole argument for automated checks. Note for the audience: the on-screen labels are in Portuguese because the task prompts were written in Portuguese — these are the unedited outputs.">
+  <div class="kicker">Blind vote · task v2 · both are real outputs</div>
+  <h2>Which one is correct? <span class="muted small">(press <kbd>V</kbd> to reveal)</span></h2>
+  <div class="row" style="flex:1;min-height:0">
+    <div class="col" style="display:flex;flex-direction:column"><div class="frame" style="flex:1"><span class="lab">Simulation A</span><iframe data-src="assets/v2_local_fail.html" title="A"></iframe></div>
+      <div class="card tight reveal-box" style="margin-top:12px;border-color:var(--fail)"><b class="fail">FAIL</b> · local qwen3.8-t02 (pi-sol) · "on day 972 (return to Earth) the ship is <b>1.75 AU</b> from Earth's real position (tolerance 0.35 AU)"</div></div>
+    <div class="col" style="display:flex;flex-direction:column"><div class="frame" style="flex:1"><span class="lab">Simulation B</span><iframe data-src="assets/v2_claude_pass.html" title="B"></iframe></div>
+      <div class="card tight reveal-box" style="margin-top:12px;border-color:var(--pass)"><b class="pass">PASS</b> · Claude Opus 5 · "orbits, Kepler and launch/return windows verified"</div></div>
+  </div>
+</section>
+
+<!-- 13 FAST != CORRECT -->
+<section class="slide" data-time="28:00–29:30" data-iframe="1" data-notes="<b>28:00–29:30.</b> The other failure shape: speed without correctness. qwen3-coder (the code-specialised model, temperature 0.2) has no reasoning mode. It wrote index.html in 87 seconds, 2 turns, zero reasoning — and 13 of the 60 sampled states have a ball outside the polygon, worst case 4,607 px away. One run (K=1), so this is an illustration, not a finding about coder models in general.">
+  <div class="kicker">The opposite failure</div>
+  <h2>Fast and confident is not correct</h2>
+  <div class="row" style="flex:1;min-height:0">
+    <div class="col" style="flex:1.25;display:flex"><div class="frame" style="flex:1"><span class="lab">real output · qwen3-coder-t02 · FAIL</span><iframe data-src="assets/v1_coder_fail.html" title="coder fail"></iframe></div></div>
+    <div class="col">
+      <div class="card rv"><div class="big">87 s</div><div class="stat-l">to write index.html · 2 turns · 0 reasoning characters</div></div>
+      <div class="card rv" style="margin-top:16px;border-color:var(--fail)"><h3 class="fail">Verifier</h3><p class="small mono">"13 samples with a ball outside the polygon (worst: −4607.7 px)"</p><p class="tiny" style="margin-top:8px">13 of 60 sampled states · task v1</p></div>
+      <p class="tiny rv" style="margin-top:14px">K = 1 — an illustration of the failure shape, not a verdict on code-specialised models.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 14 HARNESS GAP -->
+<section class="slide" data-time="29:30–31:00" data-anim="bars" data-notes="<b>29:30–31:00.</b> Same model file, same temperature 0.2, same tasks — only the harness changes. pi and pi-sol: 9/12 clean on v1+v2. Claude Code: 0/6. Fisher p = 0.0045. So the temperature result holds in lightweight harnesses, not in Claude Code as shipped. The next three slides are the investigation of why.">
+  <div class="kicker">Same model · same temperature · same tasks</div>
+  <h2>Change only the harness: 9/12 becomes 0/6</h2>
+  <div class="card rv" style="max-width:1100px">
+    <div class="small">pi + pi-sol · qwen3.8-t02 · v1 + v2</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
+    <div class="small" style="margin-top:18px">Claude Code (defaults) · qwen3.8-t02 · v1 + v2</div><div class="bar"><i data-w="0" style="background:var(--fail)"></i><b class="fail">0/6</b></div>
+    <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.0045</b>. In Claude Code: v1 three empty directories; v2 one late pass, one harness error ("API Error: The response stopped arriving"), one empty directory.</p>
+  </div>
+  <div class="row rv" style="margin-top:22px">
+    <div class="col card tight"><p class="small"><b>Known result:</b> the agent–computer interface changes performance with the same model — Yang et al., <i>SWE-agent</i>, arXiv:2405.15793.</p></div>
+    <div class="col card tight"><p class="small">"harness design is a first-class machine-learning problem" — Sengupta &amp; Wang, <i>HARBOR</i>, arXiv:2604.20938.</p></div>
+  </div>
+</section>
+
+<!-- 15 SLOT QUEUE -->
+<section class="slide" data-time="31:00–34:00" data-anim="queue" data-notes="<b>31:00–34:00.</b> Reconstructed from the Ollama journal for one run. Ollama served this model with a single slot — all 7,167 slot log lines are slot 0 — so requests queue. Claude Code first sends a background request that generates the session title: 1,420 tokens, no tools, effort high, max_tokens 32,000. The model spent 29 minutes 'thinking' about a title. Meanwhile the agent's real request waited; Claude Code gave up on it every ~6 minutes (11:16, 11:22, 11:28, 11:34, 11:40) and resent it. 29 of the 50 minutes went to the title.">
+  <div class="kicker">Inside one failed run · reconstructed from the Ollama journal</div>
+  <h2>29 of 50 minutes spent generating a session title</h2>
+  <div class="card" style="padding:22px 26px"><canvas id="cvQueue" width="1390" height="330"></canvas></div>
+  <div class="row" style="margin-top:20px">
+    <div class="col card tight rv"><p class="small"><b>One slot.</b> All 7,167 slot log lines are slot 0: requests queue, they don't run in parallel.</p></div>
+    <div class="col card tight rv"><p class="small"><b>Title request:</b> 1,420 tokens, no tools, <code>effort: high</code>, <code>max_tokens: 32000</code> (captured).</p></div>
+    <div class="col card tight rv"><p class="small"><b>Agent request</b> (22,494 tokens) waits; the client aborts it every ~6 min and retries.</p></div>
+  </div>
+</section>
+
+<!-- 16 LADDER -->
+<section class="slide" data-time="34:00–37:30" data-anim="ladder" data-notes="<b>34:00–37:30.</b> Four experiments, one variable at a time, all on v1 with the same model at 0.2. (1) Defaults: 0/3, nothing written. (2) Disable background traffic (CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1): still 0/3 — the agent's own first turn now takes 31–33 minutes. (3) Add --effort medium: 1/3 clean, 3/3 correct files, first turn 12–33 min. (4) Keep that and send a lean request: 6 tools and pi's system prompt: 89 KB → 17.6 KB, first prompt 17,835 → 4,428 tokens. 3/3 clean, first turn 9–14 min. 3/3 vs the other 1/9: p = 0.018. Conclusion: not the Claude Code agent loop — its default request. Caveat: prompt and tools changed together.">
+  <div class="kicker">One variable at a time · Claude Code · qwen3.8-t02 · task v1</div>
+  <h2>It wasn't the agent loop. It was the request.</h2>
+  <div id="ladder" style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:end;height:430px"></div>
+  <p class="small rv" style="margin-top:18px">Lean request = <code>--tools Read,Write,Edit,Bash,Glob,Grep</code> + pi's system prompt: <b>89 KB → 17.6 KB</b>, first prompt <b>17,835 → 4,428 tokens</b>. 3/3 vs the other 9 runs (1/9): <b>Fisher p = 0.018</b>. pi alone on the same task: 2/3; pi-sol: 3/3.</p>
+  <p class="tiny rv">System prompt and tool set changed together — this does not separate their effects. Each step is K = 3.</p>
+</section>
+
+<!-- 17 PRIME & SOL-PI -->
+<section class="slide" data-time="37:30–40:00" data-anim="dots" data-notes="<b>37:30–40:00.</b> Two quick harness results. Prime-agent replaces all tools with one persistent IPython REPL. Same model, same temperature: its largest reasoning turn was 54k–93k characters in all three runs, versus at most 22k for pi and pi-sol — complete separation, p = 0.012. But clean passes (1/3 vs 5/6) are not significantly different, p = 0.23: behaviour changed, outcome not proven. SoL-Pi (NVIDIA): the paper reports 44.7–49.0% less token traffic on EdgeBench with GPT-5.6 Sol and Opus 5. On our local model it loaded but never acted: 0 of 44 edits used then_run, its two tools were never called, no artifacts in 9 sessions. Why is a hypothesis: optional fields unused by a 27B model, and our sessions were too short for the passive mechanisms.">
+  <div class="kicker">Two harness results — one behavioural, one null</div>
+  <h2>The scaffold changes how much the model thinks</h2>
+  <div class="row" style="flex:1;min-height:0">
+    <div class="col card"><h3>Largest reasoning turn per run · qwen3.8-t02 · v1</h3><canvas id="cvDots" width="700" height="330"></canvas>
+      <p class="small">Complete separation: <b>p = 0.012</b> (exact, 3 vs 6). Clean passes 1/3 vs 5/6: <b>p = 0.23</b> — not significant.</p></div>
+    <div class="col card"><h3>SoL-Pi (NVIDIA) on a local model</h3>
+      <p class="small muted">Paper: token traffic −44.7 to −49.0% on EdgeBench (51 tasks), GPT-5.6 Sol & Opus 5 · arXiv:2609.20519</p>
+      <div class="row" style="margin-top:18px;gap:20px">
+        <div class="card tight rv" style="flex:1"><div class="stat fail">0/44</div><div class="stat-l">edits using <code>then_run</code></div></div>
+        <div class="card tight rv" style="flex:1"><div class="stat fail">0</div><div class="stat-l"><code>obs_recall</code> / <code>update_plan</code> calls</div></div>
+        <div class="card tight rv" style="flex:1"><div class="stat fail">0</div><div class="stat-l">artifacts in 9 sessions</div></div></div>
+      <p class="small rv" style="margin-top:18px">Loaded, verified, never triggered. pi-sol vs pi: 5/6 vs 4/6, p = 0.50 — noise. <span class="muted">Why: hypotheses only (optional fields ignored; sessions too short for the passive mechanisms).</span></p></div>
+  </div>
+</section>
+
+<!-- 18 ENERGY -->
+<section class="slide" data-time="40:00–42:30" data-anim="power" data-notes="<b>40:00–42:30.</b> Real trace: 132 minutes of the local run on pi, sampled every 2 s by the amdgpu PPT sensor — that is SoC package power, not the wall socket (no RAM, SSD, fans or PSU losses). The model under load pulls about 113–120 W (idle is about 15 W). A bugfix (a1) cost 2.8–3.9 Wh. The maze task: 56.7 and 93.8 Wh for the two passes; the timeout burned 99.3 Wh for nothing. For comparison, stock Qwen in Claude Code needed 16–27 Wh for the same a1 fix — but that series differs in both harness and temperature, so don't attribute it to one cause. There is no comparable energy number for Claude: it runs in the cloud.">
+  <div class="kicker">Energy · measured, 2-second samples</div>
+  <h2>What a local fix costs in watt-hours</h2>
+  <div class="card" style="padding:18px 22px"><canvas id="cvPower" width="1400" height="330"></canvas><div class="tiny">source: power-pi-t02-v3a1-20260925.csv · amdgpu PPT = SoC package power, <b>not wall power</b></div></div>
+  <div class="row" style="margin-top:18px">
+    <div class="col card tight rv"><div class="stat">~15 W</div><div class="stat-l">idle SoC · ~113–120 W under inference</div></div>
+    <div class="col card tight rv"><div class="stat pass">2.8–3.9 Wh</div><div class="stat-l">per a1 fix · pi · qwen3.8-t02 (91–123 s)</div></div>
+    <div class="col card tight rv"><div class="stat">16–27 Wh</div><div class="stat-l">per a1 fix · Claude Code · stock Qwen (different harness <i>and</i> temperature)</div></div>
+    <div class="col card tight rv"><div class="stat fail">~99 Wh</div><div class="stat-l">per 50-min timeout, zero output</div></div>
+  </div>
+</section>
+
+<!-- 19 COST & LATENCY -->
+<section class="slide" data-time="42:30–45:00" data-notes="<b>42:30–45:00.</b> Measured facts first: on a1 the local model on pi matched Claude's wall time (121 s vs 136–138 s medians, K=3). On visual tasks Claude was 2.5–6× faster and more reliable (11–12/12 vs at best 9/12). Then the calculator: this is a scenario, not a result. Plug in YOUR machine price, tariff and task mix. The defaults are our measured per-task numbers; the machine price is an example — replace it. Note what it ignores: failures, retries, your time, the wall-power overhead beyond the SoC.">
+  <div class="kicker">Latency is measured · cost is a scenario</div>
+  <h2>When does a local box pay for itself? <span class="muted small">(your numbers)</span></h2>
+  <div class="row">
+    <div class="col card"><h3>Measured</h3><ul class="clean small">
+      <li>a1: local on pi <b>121 s</b> median vs Claude <b>136–138 s</b> — a tie at K = 3</li>
+      <li>Visual tasks: Claude <b>309–486 s</b> vs local <b>1079–2843 s</b></li>
+      <li>Reliability: Claude 11–12/12 · local best 9/12 (pi, v1+v2) · a1 3/3</li>
+      <li>Claude API-equivalent: <b>≈ $1.0</b> per a1 fix, <b>$1.5–1.9</b> per visual task (effort medium)</li>
+      <li>Local: <b>≈ 3.4 Wh</b> SoC per a1 fix</li></ul></div>
+    <div class="col card"><h3>Scenario calculator</h3>
+      <label class="fld">Machine price (€ — <b>replace</b>, example)<input type="number" id="cPrice" value="2000"></label>
+      <label class="fld">Tasks per day<input type="number" id="cN" value="50"></label>
+      <label class="fld">Cloud cost per task ($ ≈ €)<input type="number" id="cCloud" value="1.0" step="0.1"></label>
+      <label class="fld">Local energy per task (Wh)<input type="number" id="cWh" value="3.4" step="0.1"></label>
+      <label class="fld">Electricity (€/kWh)<input type="number" id="cKwh" value="0.20" step="0.01"></label>
+      <label class="fld">Local success rate (%)<input type="number" id="cOk" value="100"></label>
+      <div id="cOut" class="card tight" style="margin-top:10px;background:var(--panel2)"></div>
+      <p class="tiny" style="margin-top:6px">Failed local tasks are assumed to be re-done in the cloud. Ignores wall-power overhead, maintenance and people's time.</p></div>
+  </div>
+</section>
+
+<!-- 20 INTEGRITY -->
+<section class="slide" data-time="45:00–47:00" data-notes="<b>45:00–47:00.</b> What went wrong in our own measurement, and what we did. This slide is why you can trust the other ones. Each item was found by checking raw logs against the CSV, and each has a fix committed in the repo.">
+  <div class="kicker">What we got wrong — and fixed</div>
+  <h2>Measurement integrity, in the open</h2>
+  <div class="row">
+    <div class="col">
+      <div class="card tight rv"><p class="small"><b class="late">Effort never pre-registered in practice.</b> Claude Code defaults to <code>effort: high</code>; the flag was never passed. → <code>CC_EFFORT</code>, Claude re-run at medium.</p></div>
+      <div class="card tight rv" style="margin-top:12px"><p class="small"><b class="late">"Thinking off" wasn't off.</b> pi's <code>--thinking off</code> sends no parameter, and Ollama then reasons by default (captured). That batch proves nothing about disabling reasoning.</p></div>
+      <div class="card tight rv" style="margin-top:12px"><p class="small"><b class="late">Energy not measured</b> before 24 Sep: RAPL is root-only. → amdgpu PPT sensor, source recorded per sample.</p></div>
+    </div>
+    <div class="col">
+      <div class="card tight rv"><p class="small"><b class="late">Evidence overwritten.</b> Run folders were named without the batch, so re-runs erased 6 cells' logs (CSV rows survived). → <code>runs/&lt;batch&gt;/</code>.</p></div>
+      <div class="card tight rv" style="margin-top:12px"><p class="small"><b class="late">Late passes counted as wins.</b> A timeout-killed run with a correct file on disk was a "pass". → clean vs late columns.</p></div>
+      <div class="card tight rv" style="margin-top:12px"><p class="small"><b class="late">OOM and a lost night.</b> <code>qwen3-coder</code> alone peaked at 110 GiB while loading; a logout killed a queue. → one model at a time, systemd units.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 21 DEMO -->
+<section class="slide" data-time="47:00–51:00" data-notes="<b>47:00–51:00.</b> Live: task a1 in two panes. Left: Claude Opus 5 in Claude Code at effort medium (median 136 s). Right: qwen3.8-t02 in pi (median 121 s). Both should finish in about two minutes. Pre-load the local model before walking on stage (first load takes seconds and 40+ GB). If the local side is slower today, say so: variance is data. After both finish, run pytest on each folder live.">
+  <div class="kicker">Live demo · task a1</div>
+  <h2>Two panes, the same bug, about two minutes each</h2>
+  <div class="row">
+    <div class="col card"><h3 class="cl">Left · Claude Opus 5 · Claude Code</h3>
+<pre class="small mono" style="white-space:pre-wrap;color:#dfe6f5">cp -r tasks/a1-bugfix/fixture /tmp/demo-claude
+cd /tmp/demo-claude
+claude --model claude-opus-5 --effort medium</pre><p class="tiny" style="margin-top:8px">Paste tasks/a1-bugfix/PROMPT.md. Median in the bench: 136 s.</p></div>
+    <div class="col card"><h3 class="loc">Right · qwen3.8-t02 · pi</h3>
+<pre class="small mono" style="white-space:pre-wrap;color:#dfe6f5">cp -r tasks/a1-bugfix/fixture /tmp/demo-local
+cd /tmp/demo-local
+PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
+  pi --provider ollama --model qwen3.8-t02:latest</pre><p class="tiny" style="margin-top:8px">Paste the same prompt. Median in the bench: 121 s. Warm the model first (<code>ollama run qwen3.8-t02 hi</code>).</p></div>
+  </div>
+  <div class="card tight rv" style="margin-top:18px"><p class="small">Then, in each folder: <code>python3 -m pytest -q tests</code> → 7 passed. Backup video recorded beforehand.</p></div>
+</section>
+
+<!-- 22 CONCLUSIONS -->
+<section class="slide" data-time="51:00–54:00" data-notes="<b>51:00–54:00.</b> Read the left column as claims with their evidence, then the right column: what we cannot claim. Finish with the one-liner: on this box, a 27B model can do real agentic work — if you control its sampling and keep the harness request small — but it is not a frontier replacement, and every claim here is scoped to four tasks, K=3, one model family.">
+  <div class="kicker">What the data supports — and what it doesn't</div>
+  <h2>Conclusions, with their scope</h2>
+  <div class="row">
+    <div class="col card"><h3 class="pass">Supported (measured here)</h3><ol class="small" style="padding-left:24px">
+      <li class="rv">Claude Opus 5: 12/12 at high, 11/12 at the pre-registered medium, 25% cheaper.</li>
+      <li class="rv">Stock Qwen3.8 in Claude Code: a1 3/3, visual <b>0/9</b> (p = 0.00002) — no file written.</li>
+      <li class="rv">The failure is <b>analysis paralysis</b>: up to 122k reasoning characters, 0 tool calls.</li>
+      <li class="rv">Temperature 0.2 unlocked it in light harnesses: 0/5 → 9/12 (p = 0.009) — against the vendor's recommended 1.0.</li>
+      <li class="rv">Claude Code's <b>default request</b>, not its loop, blocked the local model: 1/9 → 3/3 with a lean request (p = 0.018).</li>
+      <li class="rv">On a1 the local model on pi matched Claude's wall time (121 vs 136–138 s) for ~3–4 Wh of SoC energy.</li></ol></div>
+    <div class="col card"><h3 class="fail">Not supported</h3><ul class="clean small">
+      <li>"Local ≈ frontier" — Claude is 2.5–6× faster on visual tasks and more reliable.</li>
+      <li>Any ranking of pi / pi-sol / prime-agent (p ≥ 0.23).</li>
+      <li>SoL-Pi savings on local models — it never triggered.</li>
+      <li>Energy vs cloud (no cloud measurement); any payback figure (scenario only).</li>
+      <li>Anything beyond 4 tasks, K = 3, one model family.</li></ul>
+      <h3 style="margin-top:18px">Next</h3><p class="small">K ≥ 5 · separate system prompt vs tools · Terminal-Bench 2.0 via Harbor · fresh, dated tasks (SWE-rebench style).</p></div>
+  </div>
+</section>
+
+<!-- 23 REFERENCES -->
+<section class="slide" data-time="54:00–55:00" data-notes="<b>54:00–55:00.</b> All references were checked against their arXiv pages or official model card on 26 Sep 2026. Leave this up briefly; it's in the repo too (slides/VERIFICACAO_FACTOS.md).">
+  <div class="kicker">References · verified 26 Sep 2026</div>
+  <h2>Literature</h2>
+  <ul class="clean small" style="columns:2;column-gap:44px">
+    <li class="rv">Cuadron et al. (2025). <i>The Danger of Overthinking: Examining the Reasoning-Action Dilemma in Agentic Tasks.</i> arXiv:2502.08235</li>
+    <li class="rv">Qwen Team. <i>Qwen3.8-27B model card</i> (sampling for thinking mode) and <i>Qwen3 quickstart</i> (no greedy decoding).</li>
+    <li class="rv">Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan, Press (2024). <i>SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering.</i> arXiv:2405.15793</li>
+    <li class="rv">Xia, Deng, Dunn, Zhang (2024). <i>Agentless: Demystifying LLM-based Software Engineering Agents.</i> arXiv:2407.01489</li>
+    <li class="rv">Sengupta &amp; Wang (2026). <i>HARBOR: Automated Harness Optimization.</i> arXiv:2604.20938</li>
+    <li class="rv">Liu, Ye, …, Xie, Han (2026). <i>SoL-Pi: Recursively Scaling Auto-Research Loops for Efficient Agent Harness.</i> arXiv:2609.20519</li>
+    <li class="rv">Jimenez, Yang, Wettig, Yao, Pei, Press, Narasimhan (2024). <i>SWE-bench.</i> ICLR 2024, arXiv:2310.06770</li>
+    <li class="rv">Badertdinov et al. (2025). <i>SWE-rebench: automated, decontaminated evaluation of SWE agents.</i> arXiv:2505.20411</li>
+    <li class="rv">Merrill et al. (2026). <i>Terminal-Bench: Benchmarking Agents on Hard, Realistic Tasks in Command Line Interfaces.</i> arXiv:2601.11868</li>
+  </ul>
+</section>
+
+<!-- 24 Q&A -->
+<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'Why 0.2 if Qwen says 1.0?' → slide 11, it is a measured deviation. 'Is it the harness or the model?' → slide 16. 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
+  <div class="kicker">Everything is in the repository</div>
+  <h2>Questions — and where to check the answers</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+    <a class="card rv" href="../PROTOCOL.md" style="text-decoration:none;color:inherit"><h3>PROTOCOL.md</h3><p class="small muted">Pre-registration and dated deviation notes</p></a>
+    <a class="card rv" href="../RESULTS.md" style="text-decoration:none;color:inherit"><h3>RESULTS.md</h3><p class="small muted">Every number here, with its proof and p-value</p></a>
+    <a class="card rv" href="../results.csv" style="text-decoration:none;color:inherit"><h3>results.csv</h3><p class="small muted">One row per run, append-only, batch-tagged</p></a>
+    <a class="card rv" href="../tasks/" style="text-decoration:none;color:inherit"><h3>tasks/*/verify.py</h3><p class="small muted">The verifiers and the verbatim prompts</p></a>
+    <a class="card rv" href="VERIFICACAO_FACTOS.md" style="text-decoration:none;color:inherit"><h3>Fact-check</h3><p class="small muted">Claims checked against sources, errors listed</p></a>
+    <a class="card rv" href="../logs/" style="text-decoration:none;color:inherit"><h3>logs/</h3><p class="small muted">Raw agent event streams, verifier output, power CSVs</p></a>
+  </div>
+</section>
+
+</div>
+<div id="prog"></div>
+<div id="notes"></div>
+<div id="hud"><span id="hNum">1 / 24</span><span id="hTime">slot 00:00–01:00</span><span id="hClock">⏱ 00:00</span><span class="hint"><kbd>←</kbd><kbd>→</kbd> navigate · <kbd>N</kbd> notes · <kbd>F</kbd> fullscreen · <kbd>R</kbd> replay · <kbd>T</kbd> reset timer · <kbd>V</kbd> reveal</span></div>
+
+<script>
+const MAZE="111111111111111111111111111110000000000011110000000000011000001100101001010011000001100000000010100101000000000110000111111010010111111000011110110000101001010000110111110011000010100101000011001111001100001000000100001100111100110010111001110100110011110001111010000001011110001110000100100000000001001000011001010010000000000100101001101100101001000010010100110110100000000001100000000001011010111111100000011111110101101001000001111110000010010110110000010111111010000011011011000000011111100000001101101111100001111110000111110110111000000000000000000111011001100011010110101100011001000001100100011000100110000011000110011011110110011000111100011001100000011001100011110001111110011001111110001110010111000101101000111010011001011101010110101011101001111100110000011000001100111111100011000111111000110001111000100111111111111110010001100111011000011000011011100110011101100000000001101110011111100011000000001100011111100010001111100111110001000110000010000000000000010000011111111111111111111111111111";
+const POWER=[[0,91.3],[24,118.3],[48,119.3],[72,119.4],[96,119.7],[120,91.6],[144,119.8],[168,118.6],[192,119.6],[216,120.0],[241,90.5],[265,119.9],[289,119.6],[313,115.1],[337,97.0],[361,119.4],[385,119.4],[409,119.5],[433,119.4],[457,119.4],[481,119.6],[505,119.5],[529,119.4],[553,119.2],[577,119.4],[601,119.2],[625,119.5],[649,119.3],[673,119.2],[697,119.2],[721,119.2],[745,119.2],[769,119.2],[793,119.4],[817,119.3],[841,119.2],[865,119.8],[889,119.7],[913,119.2],[937,119.4],[961,119.2],[985,119.4],[1009,119.4],[1033,119.4],[1057,119.6],[1081,119.5],[1105,119.2],[1129,119.3],[1153,119.4],[1177,119.5],[1201,119.2],[1225,119.2],[1249,119.3],[1273,119.2],[1297,119.5],[1321,119.5],[1345,119.2],[1369,119.2],[1393,119.7],[1417,119.7],[1441,119.4],[1465,119.7],[1489,119.6],[1513,119.6],[1537,119.5],[1561,119.0],[1585,118.9],[1609,118.9],[1633,119.1],[1657,119.0],[1681,119.5],[1705,119.4],[1729,118.7],[1753,118.9],[1777,119.0],[1801,118.5],[1825,118.9],[1849,119.0],[1873,119.1],[1897,119.6],[1921,119.3],[1945,113.2],[1969,119.5],[1993,117.7],[2017,119.4],[2041,88.9],[2065,123.1],[2089,119.2],[2113,119.6],[2137,119.5],[2162,119.6],[2186,119.4],[2210,119.4],[2234,119.4],[2258,119.6],[2282,119.7],[2306,119.4],[2330,119.3],[2354,119.5],[2378,119.5],[2402,119.3],[2426,119.7],[2450,119.5],[2474,119.8],[2498,119.4],[2522,119.4],[2546,119.8],[2570,119.2],[2594,119.5],[2618,119.4],[2642,119.2],[2666,119.4],[2690,119.5],[2714,119.4],[2738,119.1],[2762,119.2],[2786,119.3],[2810,119.5],[2834,119.2],[2858,119.2],[2882,119.5],[2906,119.2],[2930,119.3],[2954,119.3],[2978,119.4],[3002,119.3],[3026,119.4],[3050,119.3],[3074,119.5],[3098,119.5],[3122,119.4],[3146,119.2],[3170,119.3],[3194,119.4],[3218,119.8],[3242,119.9],[3266,119.6],[3290,119.7],[3314,119.6],[3338,119.2],[3362,119.5],[3386,119.4],[3410,119.3],[3434,119.4],[3458,119.6],[3482,119.5],[3506,119.8],[3530,119.5],[3554,119.3],[3578,119.2],[3602,119.2],[3626,119.7],[3650,119.4],[3674,119.8],[3698,119.8],[3722,119.3],[3746,119.6],[3770,119.3],[3794,119.1],[3818,119.5],[3842,119.3],[3866,119.5],[3890,119.5],[3914,119.7],[3938,118.3],[3962,119.0],[3986,118.7],[4010,118.9],[4034,119.3],[4058,117.3],[4082,119.0],[4106,118.9],[4131,118.8],[4155,118.7],[4179,118.9],[4203,119.1],[4227,119.4],[4251,119.4],[4275,119.6],[4299,119.5],[4323,119.3],[4347,119.1],[4371,118.7],[4395,119.1],[4419,118.9],[4443,115.8],[4467,119.5],[4491,119.5],[4515,119.5],[4539,119.0],[4563,118.5],[4587,118.9],[4611,119.0],[4635,118.9],[4659,114.6],[4683,119.5],[4707,119.6],[4731,119.5],[4755,119.5],[4779,119.4],[4803,81.5],[4827,120.1],[4851,119.4],[4875,113.1],[4899,98.6],[4923,119.2],[4947,119.2],[4971,119.3],[4995,119.5],[5019,119.3],[5043,119.3],[5067,119.4],[5091,119.4],[5115,119.5],[5139,119.5],[5163,119.5],[5187,119.3],[5211,119.5],[5235,119.6],[5259,119.5],[5283,119.2],[5307,119.6],[5331,119.3],[5355,119.2],[5379,119.5],[5403,119.7],[5427,119.5],[5451,119.7],[5475,119.8],[5499,119.6],[5523,119.5],[5547,119.4],[5571,119.7],[5595,119.4],[5619,119.5],[5643,119.6],[5667,119.9],[5691,119.6],[5715,119.7],[5739,119.4],[5763,119.3],[5787,119.5],[5811,119.3],[5835,119.4],[5859,119.2],[5883,119.1],[5907,119.2],[5931,119.2],[5955,119.3],[5979,119.2],[6003,119.4],[6027,119.3],[6052,119.4],[6076,119.2],[6100,119.5],[6124,119.3],[6148,119.4],[6172,119.5],[6196,119.3],[6220,119.3],[6244,119.4],[6268,119.5],[6292,119.5],[6316,119.5],[6340,119.4],[6364,119.3],[6388,119.2],[6412,119.1],[6436,119.2],[6460,119.4],[6484,119.3],[6508,119.1],[6532,119.3],[6556,119.5],[6580,119.2],[6604,119.5],[6628,119.4],[6652,119.4],[6676,119.4],[6700,119.4],[6724,119.5],[6748,119.3],[6772,119.3],[6796,119.6],[6820,119.3],[6844,119.3],[6868,119.7],[6892,119.3],[6916,119.4],[6940,119.5],[6964,119.3],[6988,119.5],[7012,119.5],[7036,119.2],[7060,119.2],[7084,119.3],[7108,119.2],[7132,119.5],[7156,119.3],[7180,119.5],[7204,119.2],[7228,119.5],[7252,119.4],[7276,119.3],[7300,119.2],[7324,119.5],[7348,119.4],[7372,119.4],[7396,119.3],[7420,119.2],[7444,119.2],[7468,119.4],[7492,119.5],[7516,119.2],[7540,119.2],[7564,119.4],[7588,119.3],[7612,119.5],[7636,119.4],[7660,119.4],[7684,119.5],[7708,119.3],[7732,119.4],[7756,119.3],[7781,119.2],[7805,119.4],[7829,119.5],[7853,119.5],[7877,119.5]];
+const RUNS=[{"task":"a1-bugfix","k":1,"start":-2,"end":119,"result":"clean pass"},{"task":"a1-bugfix","k":2,"start":119,"end":242,"result":"clean pass"},{"task":"a1-bugfix","k":3,"start":242,"end":333,"result":"clean pass"},{"task":"v3-viriato","k":1,"start":334,"end":2052,"result":"clean pass"},{"task":"v3-viriato","k":2,"start":2052,"end":4895,"result":"clean pass"},{"task":"v3-viriato","k":3,"start":4895,"end":7895,"result":"timeout"}];
+const slides=[...document.querySelectorAll('.slide')];
+let cur=0, t0=Date.now(), timers=[];
+const stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/1600,(innerHeight-34)/900);stage.style.transform=`translate(-50%,-50%) scale(${s})`;stage.style.top=((innerHeight-34)/2)+'px'}
+addEventListener('resize',fit);fit();
+function clearTimers(){timers.forEach(t=>{clearInterval(t);clearTimeout(t);cancelAnimationFrame(t)});timers=[]}
+function later(f,ms){timers.push(setTimeout(f,ms))}
+function every(f,ms){timers.push(setInterval(f,ms))}
+function show(i){
+  clearTimers();
+  slides.forEach((s,j)=>{s.classList.toggle('active',j===i);
+    s.querySelectorAll('iframe').forEach(f=>{if(j===i){if(f.dataset.src&&f.getAttribute('src')!==f.dataset.src)f.setAttribute('src',f.dataset.src)}else if(f.getAttribute('src'))f.removeAttribute('src')})});
+  document.querySelectorAll('.reveal-box').forEach(b=>b.classList.remove('on'));
+  cur=i;const s=slides[i];
+  document.getElementById('hNum').textContent=`${i+1} / ${slides.length}`;
+  document.getElementById('hTime').textContent='slot '+(s.dataset.time||'');
+  document.getElementById('notes').innerHTML=s.dataset.notes||'';
+  document.getElementById('prog').style.width=((i+1)/slides.length*100)+'%';
+  s.querySelectorAll('.bar>i').forEach(b=>{b.style.width='0';later(()=>b.style.width=(b.dataset.w||0)+'%',150)});
+  s.querySelectorAll('[data-count]').forEach(el=>countUp(el,+el.dataset.count,el.dataset.suffix||'',1200));
+  const a=s.dataset.anim; if(a&&ANIM[a])ANIM[a](s);
+  history.replaceState(null,'','#'+(i+1));
+}
+function countUp(el,to,suf,ms){const st=performance.now();function f(n){const k=Math.min(1,(n-st)/ms);el.textContent=Math.round(to*(1-Math.pow(1-k,3))).toLocaleString('en-US')+suf;if(k<1)timers.push(requestAnimationFrame(f))}timers.push(requestAnimationFrame(f))}
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const k=e.key;
+  if(['ArrowRight','PageDown',' ','j'].includes(k)){e.preventDefault();if(cur<slides.length-1)show(cur+1)}
+  else if(['ArrowLeft','PageUp','k'].includes(k)){e.preventDefault();if(cur>0)show(cur-1)}
+  else if(k==='Home')show(0); else if(k==='End')show(slides.length-1);
+  else if(k==='n'||k==='N')document.getElementById('notes').classList.toggle('on');
+  else if(k==='f'||k==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+  else if(k==='r'||k==='R')show(cur);
+  else if(k==='t'||k==='T')t0=Date.now();
+  else if(k==='v'||k==='V')document.querySelectorAll('.slide.active .reveal-box').forEach(b=>b.classList.add('on'));
+});
+setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);document.getElementById('hClock').textContent='⏱ '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},1000);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+const ANIM={
+/* v2: Hohmann transfer, same physics as the verifier */
+hohmann(){
+  const c=document.getElementById('cvHoh'),g=c.getContext('2d'),W=c.width,H=c.height,cx=W/2,cy=H/2+10,S=175;
+  const P={Mercury:[0.387,87.97,'#b8b0a5',4],Venus:[0.723,224.7,'#e8c37a',6],Earth:[1,365.25,'#5aa9ff',7],Mars:[1.524,686.98,'#ff7b54',5.5]};
+  const th0=200*Math.PI/180, a=(1+1.524)/2, e=(1.524-1)/(1.524+1), Tt=2*259;
+  const ang=(n,d,off)=>off+2*Math.PI*d/P[n][1];
+  const off={Mercury:th0+1.1,Venus:th0+2.3,Earth:th0,Mars:th0+44*Math.PI/180};
+  function kep(M){let E=M;for(let i=0;i<30;i++)E=E-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));const nu=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));return [a*(1-e*Math.cos(E)),nu]}
+  const tLeave=259+455, marsLeave=ang('Mars',tLeave,off.Mars), retPeri=marsLeave+Math.PI;
+  function ship(d){
+    if(d<=0){const t=ang('Earth',0,off.Earth);return [Math.cos(t),Math.sin(t),'on Earth']}
+    if(d<=259){const [r,nu]=kep(2*Math.PI*d/Tt);return [r*Math.cos(th0+nu),r*Math.sin(th0+nu),'outbound transfer']}
+    if(d<=tLeave){const t=ang('Mars',d,off.Mars);return [1.524*Math.cos(t),1.524*Math.sin(t),'waiting on Mars']}
+    const tau=Math.min(d-tLeave,259);const [r,nu]=kep(Math.PI+2*Math.PI*tau/Tt);return [r*Math.cos(retPeri+nu),r*Math.sin(retPeri+nu),d>=973?'back on Earth':'return transfer']}
+  const trail=[];let day=0;
+  function frame(){
+    day+=2.2; if(day>1040){day=0;trail.length=0}
+    g.fillStyle='#0b0e14';g.fillRect(0,0,W,H);
+    for(const n in P){g.strokeStyle='#26304a';g.lineWidth=1;g.beginPath();g.arc(cx,cy,P[n][0]*S,0,7);g.stroke()}
+    g.fillStyle='#ffd166';g.beginPath();g.arc(cx,cy,12,0,7);g.fill();
+    for(const n in P){const t=ang(n,day,off[n]);const x=cx+P[n][0]*S*Math.cos(t),y=cy-P[n][0]*S*Math.sin(t);g.fillStyle=P[n][2];g.beginPath();g.arc(x,y,P[n][3],0,7);g.fill();g.fillStyle='#9aa4bd';g.font='13px monospace';g.fillText(n,x+9,y-8)}
+    const [sx,sy,ph]=ship(day);const px=cx+sx*S,py=cy-sy*S;trail.push([px,py]);
+    g.strokeStyle='rgba(94,224,255,.75)';g.lineWidth=2;g.beginPath();trail.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();
+    g.fillStyle='#5ee0ff';g.beginPath();g.arc(px,py,4.5,0,7);g.fill();
+    g.fillStyle='#e8ecf4';g.font='bold 20px monospace';g.fillText('mission day '+Math.min(Math.round(day),973),18,32);
+    g.fillStyle='#5ee0ff';g.font='16px monospace';g.fillText(ph,18,56);
+    g.fillStyle='#9aa4bd';g.font='13px monospace';g.fillText('depart day 0 (Mars 44° ahead) · arrive 259 · leave 714 · home ≈ 973',18,H-14);
+    timers.push(requestAnimationFrame(frame))}
+  frame();
+},
+/* v3: real maze from the local model, built symmetrically */
+maze(){
+  const c=document.getElementById('cvMaze'),g=c.getContext('2d'),R=36,C=28,cs=16;
+  const grid=[];for(let r=0;r<R;r++)grid.push([...MAZE.slice(r*C,(r+1)*C)].map(Number));
+  let tunnel=-1;for(let r=0;r<R;r++)if(grid[r][0]===0&&grid[r][C-1]===0)tunnel=r;
+  g.fillStyle='#0b0e14';g.fillRect(0,0,c.width,c.height);
+  let col=0;
+  const li=[...document.querySelectorAll('#mazeList li')];li.forEach(l=>l.style.opacity=.25);
+  every(()=>{
+    if(col<C/2){for(const cc of [col,C-1-col])for(let r=0;r<R;r++){const w=grid[r][cc]===1;let fill=w?'#2d3a5c':'#0b0e14';
+        if(w&&r>=15&&r<=18&&cc>=11&&cc<=16)fill='#ffb547';if(!w&&r===tunnel)fill='#12305a';
+        g.fillStyle=fill;g.fillRect(cc*cs,r*cs,cs-1,cs-1)}
+      col++; const k=Math.floor(col/(C/2)*li.length); li.forEach((l,i)=>{if(i<k)l.style.opacity=1});}
+    else{li.forEach(l=>l.style.opacity=1);g.strokeStyle='#6aa8ff';g.lineWidth=2;g.strokeRect(1,tunnel*cs+1,C*cs-3,cs-3)}
+  },110);
+},
+/* a1: recurrence timeline */
+a1(){
+  const box=document.getElementById('a1rows');
+  const rows=[['start',['Jan 31','','',''],'#9aa4bd'],
+    ['original code',['Jan 31','Feb 31 → ValueError','',''],'#ff5c7a'],
+    ['clamp only, chained',['Jan 31','Feb 28','Mar 28 ✗','Apr 28 ✗'],'#ffb547'],
+    ['anchored to start ✓',['Jan 31','Feb 28','Mar 31','Apr 30'],'#3ddc97']];
+  box.innerHTML='';const cells=[];
+  rows.forEach(([lab,vals,colr])=>{const l=document.createElement('div');l.textContent=lab;l.style.color=colr;l.style.opacity=0;l.style.transition='opacity .4s';box.appendChild(l);cells.push(l);
+    vals.forEach(v=>{const d=document.createElement('div');d.textContent=v;d.style.cssText=`padding:12px 14px;border-radius:10px;background:${v?'#1a2133':'transparent'};color:${v?colr:'transparent'};opacity:0;transform:translateX(-12px);transition:all .45s;border:1px solid ${v?'#2a3350':'transparent'}`;box.appendChild(d);cells.push(d)})});
+  cells.forEach((el,i)=>later(()=>{el.style.opacity=1;el.style.transform='none'},200+i*170));
+},
+/* scoring timeline: three real runs */
+timeline(){
+  const c=document.getElementById('cvTimeline'),g=c.getContext('2d'),W=c.width,H=c.height,x0=260,x1=W-40,T=3000;
+  const X=s=>x0+(x1-x0)*s/T;
+  const runs=[['clean pass',691,691,'#3ddc97','finished 691 s'],['late pass',3000,2162,'#ffb547','correct file at 2162 s, killed at 3000 s'],['fail',3000,null,'#ff5c7a','no file written']];
+  let k=0;
+  function draw(){g.fillStyle='#131826';g.fillRect(0,0,W,H);
+    g.strokeStyle='#ff5c7a';g.setLineDash([6,6]);g.beginPath();g.moveTo(X(T),10);g.lineTo(X(T),H-30);g.stroke();g.setLineDash([]);
+    g.fillStyle='#ff5c7a';g.font='14px monospace';g.fillText('timeout 3000 s',X(T)-120,H-10);
+    g.fillStyle='#9aa4bd';[0,500,1000,1500,2000,2500].forEach(s=>g.fillText(s+' s',X(s)-10,H-10));
+    runs.forEach(([lab,end,file,colr,desc],i)=>{const y=30+i*70,len=Math.min(end,k);
+      g.fillStyle=colr;g.font='bold 20px sans-serif';g.fillText(lab,20,y+22);
+      g.fillStyle='#1a2133';g.fillRect(x0,y,x1-x0,30);g.fillStyle=colr+'55';g.fillRect(x0,y,X(len)-x0,30);
+      if(file!==null&&k>=file){g.fillStyle=colr;g.beginPath();g.arc(X(file),y+15,9,0,7);g.fill()}
+      if(k>=end){g.fillStyle='#e8ecf4';g.font='15px monospace';g.fillText(desc,X(Math.min(end,1900))+14,y+21)}});
+    if(k<T){k+=45;timers.push(requestAnimationFrame(draw))}}
+  draw();
+},
+/* staged bars handled in show(); nothing extra */
+bars(){},
+/* analysis paralysis counters */
+paralysis(s){
+  countUp(document.getElementById('parA'),113162,'',3200);
+  const bar=s.querySelector('#parAticks i');bar.style.transition='none';bar.style.width='0';later(()=>{bar.style.transition='width 3.2s linear';bar.style.width='100%'},50);
+  const box=document.getElementById('parBticks');box.innerHTML='';
+  for(let i=0;i<18;i++)later(()=>{const t=document.createElement('i');t.style.cssText='flex:1;border-radius:4px;background:#3ddc97;opacity:.85';box.appendChild(t);document.getElementById('parB').textContent=box.children.length},200+i*170);
+},
+/* Ollama queue, 11:10 → 11:41 */
+queue(){
+  const c=document.getElementById('cvQueue'),g=c.getContext('2d'),W=c.width,H=c.height,x0=230,x1=W-30;
+  const m0=10,m1=41, X=m=>x0+(x1-x0)*(m-m0)/(m1-m0);
+  let t=m0;
+  function draw(){g.fillStyle='#131826';g.fillRect(0,0,W,H);
+    g.font='16px monospace';g.fillStyle='#9aa4bd';for(let m=10;m<=40;m+=5)g.fillText('11:'+String(m).padStart(2,'0'),X(m)-22,H-8);
+    g.font='bold 18px sans-serif';g.fillStyle='#e8ecf4';g.fillText('Ollama slot 0',20,70);g.fillText('agent request',20,170);g.fillText('client',20,250);
+    const te=Math.min(t,39);g.fillStyle='#ffb547';g.fillRect(X(10),48,X(te)-X(10),36);
+    g.fillStyle='#0b0e14';g.font='bold 15px monospace';if(t>13)g.fillText('title request · 1,420 tokens · effort high · ~31k tokens generated',X(10)+10,72);
+    if(t>39){g.fillStyle='#6aa8ff';g.fillRect(X(39),48,X(Math.min(t,41))-X(39),36)}
+    [16,22,28,34,40].forEach((m,i)=>{const s=i?m-6:10;if(t>s){g.fillStyle='#2a3350';g.fillRect(X(s),148,X(Math.min(t,m))-X(s),34)}
+      if(t>=m){g.strokeStyle='#ff5c7a';g.lineWidth=4;const x=X(m);g.beginPath();g.moveTo(x-10,155);g.lineTo(x+10,175);g.moveTo(x+10,155);g.lineTo(x-10,175);g.stroke();
+        g.fillStyle='#ff5c7a';g.font='14px monospace';g.fillText('abort',x-20,240);g.fillText('11:'+m,x-20,262)}});
+    g.fillStyle='#e8ecf4';g.font='15px monospace';if(t>39.2)g.fillText('agent request finally processed (22,494 tokens)',X(26),120);
+    g.strokeStyle='#5ee0ff';g.lineWidth=2;g.beginPath();g.moveTo(X(t),30);g.lineTo(X(t),H-30);g.stroke();
+    if(t<41){t+=0.045;timers.push(requestAnimationFrame(draw))}}
+  draw();
+},
+/* the ladder */
+ladder(){
+  const L=document.getElementById('ladder');
+  const steps=[['Defaults','0/3','0/3 files','title request blocks the slot','#ff5c7a',6],
+    ['− background requests','0/3','1/3 files','first turn 31 · 32 · 33 min','#ff5c7a',6],
+    ['+ effort medium','1/3','3/3 files','first turn 21 · 12 · 33 min','#ffb547',38],
+    ['+ lean request','3/3','3/3 files','first turn 14 · 9 · 10 min','#3ddc97',100]];
+  L.innerHTML='';
+  steps.forEach(([t,clean,files,note,colr,h],i)=>{const d=document.createElement('div');
+    d.innerHTML=`<div style="font:700 44px/1 var(--mono);color:${colr}">${clean}</div><div class="stat-l">clean · ${files}</div>
+      <div style="height:${h*2.4+20}px;background:linear-gradient(180deg,${colr},${colr}33);border-radius:12px;margin:14px 0 12px;transform-origin:bottom;transform:scaleY(0);transition:transform .7s cubic-bezier(.2,.8,.2,1)"></div>
+      <div style="font:700 20px/1.2 var(--sans)">${i+1}. ${t}</div><div class="small muted" style="margin-top:6px">${note}</div>`;
+    d.style.opacity=0;d.style.transition='opacity .5s';L.appendChild(d);
+    later(()=>{d.style.opacity=1;d.children[2].style.transform='scaleY(1)'},300+i*900)});
+},
+/* prime vs pi dot plot */
+dots(){
+  const c=document.getElementById('cvDots'),g=c.getContext('2d'),W=c.width,H=c.height,x0=150,x1=W-30,max=100000;
+  const X=v=>x0+(x1-x0)*v/max;
+  const rows=[['pi',[10289,15019,13913],'#6aa8ff'],['pi-sol',[9236,22479,22362],'#5ee0ff'],['prime-agent',[54461,93409,69254],'#ff5c7a']];
+  let k=0;
+  function draw(){g.fillStyle='#131826';g.fillRect(0,0,W,H);
+    g.fillStyle='#9aa4bd';g.font='13px monospace';[0,25000,50000,75000,100000].forEach(v=>{g.fillText((v/1000)+'k',X(v)-10,H-8);g.strokeStyle='#222b42';g.beginPath();g.moveTo(X(v),10);g.lineTo(X(v),H-26);g.stroke()});
+    rows.forEach(([n,vals,colr],i)=>{const y=60+i*95;g.fillStyle='#e8ecf4';g.font='bold 18px sans-serif';g.fillText(n,14,y+6);
+      vals.forEach((v,j)=>{const vv=v*Math.min(1,k);g.fillStyle=colr;g.beginPath();g.arc(X(vv),y+(j-1)*12,9,0,7);g.fill()})});
+    if(k<1){k+=0.02;timers.push(requestAnimationFrame(draw))}}
+  draw();
+},
+/* real power trace */
+power(){
+  const c=document.getElementById('cvPower'),g=c.getContext('2d'),W=c.width,H=c.height,x0=60,x1=W-20,y0=H-40,y1=20;
+  const tmax=POWER[POWER.length-1][0],X=t=>x0+(x1-x0)*t/tmax,Y=w=>y0-(y0-y1)*w/140;
+  let k=0;
+  function draw(){g.fillStyle='#131826';g.fillRect(0,0,W,H);
+    RUNS.forEach(r=>{const colr=r.result==='clean pass'?'rgba(61,220,151,.10)':'rgba(255,92,122,.12)';g.fillStyle=colr;g.fillRect(X(Math.max(0,r.start)),y1,X(r.end)-X(Math.max(0,r.start)),y0-y1);
+      g.fillStyle=r.result==='clean pass'?'#3ddc97':'#ff5c7a';g.font='13px monospace';const lab=(r.task==='a1-bugfix'?'a1':'v3')+' #'+r.k;
+      if(r.task!=='a1-bugfix'||r.k===1)g.fillText(r.task==='a1-bugfix'?'a1 ×3':lab+(r.result==='timeout'?' timeout':''),X(Math.max(0,r.start))+4,y1+16)});
+    g.fillStyle='#9aa4bd';g.font='13px monospace';[0,40,80,120].forEach(w=>{g.fillText(w+' W',8,Y(w)+4);g.strokeStyle='#222b42';g.beginPath();g.moveTo(x0,Y(w));g.lineTo(x1,Y(w));g.stroke()});
+    for(let m=0;m<=tmax/60;m+=20)g.fillText(m+' min',X(m*60)-14,H-14);
+    const n=Math.floor(POWER.length*Math.min(1,k));g.strokeStyle='#5ee0ff';g.lineWidth=2;g.beginPath();
+    for(let i=0;i<n;i++){const [t,w]=POWER[i];i?g.lineTo(X(t),Y(w)):g.moveTo(X(t),Y(w))}g.stroke();
+    if(k<1){k+=0.012;timers.push(requestAnimationFrame(draw))}}
+  draw();
+}
+};
+
+/* scenario calculator */
+function calc(){
+  const v=id=>+document.getElementById(id).value||0;
+  const price=v('cPrice'),n=v('cN'),cloud=v('cCloud'),wh=v('cWh'),kwh=v('cKwh'),ok=Math.min(100,Math.max(0,v('cOk')))/100;
+  const localEnergy=wh/1000*kwh;
+  const savedPerTask=ok*(cloud-localEnergy)-(1-ok)*localEnergy;
+  const perDay=savedPerTask*n;
+  const out=document.getElementById('cOut');
+  if(perDay<=0||price<=0){out.innerHTML='<b class="fail">No payback</b> with these inputs.';return}
+  const days=price/perDay;
+  out.innerHTML=`<div class="small">saves ≈ <b>${perDay.toFixed(2)}</b> per day · energy ≈ ${(localEnergy*1000).toFixed(2)} cents/task</div><div class="stat" style="margin-top:8px">${days<3650?Math.ceil(days)+' days':'> 10 years'}</div><div class="stat-l">to break even — <b>scenario, not a measurement</b></div>`;
+}
+['cPrice','cN','cCloud','cWh','cKwh','cOk'].forEach(id=>document.getElementById(id).addEventListener('input',calc));calc();
+
+const h=parseInt(location.hash.slice(1));show(h>=1&&h<=slides.length?h-1:0);
+</script>
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Solar Interior · Missão Tripulada Terra–Marte</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: #04060d;
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    color: #cfd8ea; overflow: hidden;
+  }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline;
+    padding: 10px 16px; background: #0a0f1cE6; border-bottom: 1px solid #1d2740;
+    font-size: 13px;
+  }
+  header h1 { font-size: 14px; margin: 0 14px 0 0; color: #8fd3ff; font-weight: 600; }
+  .stat b { color: #ffffff; }
+  .fps-ok { color: #7df0a8; } .fps-warn { color: #ffd479; } .fps-bad { color: #ff7a7a; }
+  .phase { color: #9ad0ff; }
+  #wrap { position: relative; flex: 1; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #panel {
+    position: absolute; right: 14px; top: 14px; width: 300px;
+    background: #0a0f1cE6; border: 1px solid #1d2740; border-radius: 10px;
+    padding: 12px 14px; font-size: 12px; line-height: 1.55;
+  }
+  #panel h2 { margin: 0 0 6px; font-size: 12px; color: #8fd3ff; letter-spacing: .06em; text-transform: uppercase; }
+  #panel table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  #panel td { padding: 1px 0; }
+  #panel td:last-child { text-align: right; color: #ffffff; }
+  #panel .hint { color: #7b87a3; font-size: 11px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: -1px; }
+  #controls {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    padding: 10px 16px; background: #0a0f1cE6; border-top: 1px solid #1d2740; font-size: 13px;
+  }
+  #controls button {
+    background: #16233f; color: #cfe4ff; border: 1px solid #2b3f6b; border-radius: 8px;
+    padding: 6px 16px; font: inherit; cursor: pointer;
+  }
+  #controls button:hover { background: #1d2f55; }
+  input[type=range] { width: 200px; accent-color: #4f9cff; }
+  .val { min-width: 92px; color: #fff; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Sistema Solar Interior · Missão Terra–Marte</h1>
+    <span class="stat">FPS inst: <b id="fpsNow">—</b></span>
+    <span class="stat">FPS média: <b id="fpsAvg">—</b></span>
+    <span class="stat">Dia da missão: <b id="dayNow">0</b> / <b id="dayTotal">—</b></span>
+    <span class="phase" id="phaseLbl">—</span>
+  </header>
+
+  <div id="wrap">
+    <canvas id="c"></canvas>
+    <div id="panel">
+      <h2>Missão (contra a janela de lançamento)</h2>
+      <table id="missionTable"></table>
+      <div>
+        <span class="dot" style="background:#4f8fd1"></span>Terra
+        <span class="dot" style="background:#d1613c"></span>Marte
+        <span class="dot" style="background:#f4f7ff"></span>Nave
+      </div>
+      <div class="hint">Trajetos de Hohmann tracejados; a nave segue o trajeto
+        (elipse 1 AU → 1.524 AU), espera em Marte e regressa na janela
+        seguinte. Ángulo de fase à partida: <b id="phase0">—</b>.</div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btnPause">⏸ Pausar</button>
+    <label>Velocidade:
+      <input type="range" id="speed" min="0.5" max="20" step="0.5" value="4">
+      <span class="val" id="speedVal">4 dias/s</span>
+    </label>
+    <button id="btnRestart">↺ Recomeçar missão</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Física da missão (dias, AU, graus CCW a partir de +x)
+   ============================================================ */
+const RAD = Math.PI / 180;
+
+// Períodos orbitais (dias) — ratios corretos (Marte ≈ 1.88 anos terrestres)
+const PERIODS = { Mercury: 87.969, Venus: 224.701, Earth: 365.25, Mars: 686.98 };
+const AUS     = { Mercury: 0.387,  Venus: 0.7233,  Earth: 1.0,    Mars: 1.524 };
+
+const wE = 360 / PERIODS.Earth;   // vel. angular da Terra  (graus/dia)
+const wM = 360 / PERIODS.Mars;    // vel. angular de Marte  (graus/dia)
+
+// Transferência de Hohmann Terra(1 AU) ↔ Marte(1.524 AU)
+const OUT_DAYS = 259;            // ida  (≈ 259 dias)
+const RET_DAYS = 259;            // regresso
+const aT  = (AUS.Earth + AUS.Mars) / 2;               // semi-eixo maior = 1.262 AU
+const eT  = (AUS.Mars - AUS.Earth) / (AUS.Mars + AUS.Earth); // excentricidade
+
+// Ângulo de fase à partida: à chegada a nave está 180° frente à partida;
+// Marte tem de estar exatamente aí → Marte parte 180 − ω_M·t_out à frente.
+const PHI0 = 180 - wM * OUT_DAYS;                      // ≈ 44.3°
+
+// Espera em Marte: à partida do regresso, a posição da chegada (Marte+180°)
+// tem de coincidir com a posição da Terra nesse momento:
+//   wE·(OUT+S+RET) ≡ 180 + Φ0 + wM·(OUT+S)  (mod 360)
+//   → S = (360 − wE·(OUT+RET)) / (wE − wM)  (mod período sinódico)
+const SYN = 360 / (wE - wM);
+let STAY_DAYS = ((360 - wE * (OUT_DAYS + RET_DAYS)) / (wE - wM)) % SYN;
+if (STAY_DAYS < 0) STAY_DAYS += SYN;                   // ≈ 453.8 dias
+
+const TOTAL_DAYS = OUT_DAYS + STAY_DAYS + RET_DAYS;    // ≈ 971.8 dias
+
+/* ---------------- corpos ---------------- */
+const BODIES = [
+  { name: "Mercury", au: AUS.Mercury, T: PERIODS.Mercury, a0: 200.0, size: 3.4, color: "#b5a99a" },
+  { name: "Venus",   au: AUS.Venus,   T: PERIODS.Venus,   a0: 325.0, size: 6.2, color: "#e6c98a" },
+  { name: "Earth",   au: AUS.Earth,   T: PERIODS.Earth,   a0: 0.0,   size: 7.0, color: "#4f8fd1" },
+  { name: "Mars",    au: AUS.Mars,    T: PERIODS.Mars,    a0: PHI0,  size: 4.8, color: "#d1613c" },
+];
+const EARTH = BODIES[2], MARS = BODIES[3];
+
+function bodyAngleRad(b, day) { return (b.a0 + 360 * day / b.T) * RAD; }
+function bodyPos(b, day) {
+  const a = bodyAngleRad(b, day);
+  return { x: b.au * Math.cos(a), y: b.au * Math.sin(a) };
+}
+
+/* ---------------- trajeto da nave (Hohmann, equação de Kepler) ---------------- */
+function keplerE(M, e) {
+  let E = M + e * Math.sin(M);
+  for (let i = 0; i < 12; i++) {
+    const f = E - e * Math.sin(E) - M;
+    E -= f / (1 - e * Math.cos(E));
+  }
+  return E;
+}
+
+// prog ∈ [0,1] ao longo do semieixo da transferência; depDeg = ângulo da posição
+// de partida (períelio para a ida, apélio para o regresso — mesma fórmula).
+// Ida: prog 0→1 com E 0→π (períelio 1 AU na Terra → apélio 1.524 AU em Marte)
+// Regresso: prog 0→1 com E π→0 (apélio 1.524 AU em Marte → períelio 1 AU na Terra)
+function shipTransfer(prog, depDeg, isOutbound) {
+  const E = isOutbound ? keplerE(Math.PI * prog, eT) : Math.PI - keplerE(Math.PI * prog, eT);
+  const nu = 2 * Math.atan2(Math.sqrt(1 + eT) * Math.sin(E / 2),
+                           Math.sqrt(1 - eT) * Math.cos(E / 2));
+  const r  = aT * (1 - eT * Math.cos(E));
+  const th = depDeg * RAD + (isOutbound ? nu : Math.PI - nu); // regresso: perélio a 180° da partida (posição da Terra no fim)
+  return { x: r * Math.cos(th), y: r * Math.sin(th) };
+}
+
+const MARS_DEP_ANGLE = (MARS.a0 + wM * (OUT_DAYS + STAY_DAYS)) % 360; // ângulo de Marte na partida do regresso
+
+function shipAt(day) {
+  const d = ((day % TOTAL_DAYS) + TOTAL_DAYS) % TOTAL_DAYS;
+  if (d < OUT_DAYS) {
+    // Transferência de ida: parte da Terra (dia 0), chega ao ângulo da Terra+180° = posição de Marte no dia OUT_DAYS
+    return shipTransfer(d / OUT_DAYS, EARTH.a0, true);
+  }
+  if (d < OUT_DAYS + STAY_DAYS) {
+    // Espera: nave colada a Marte (mesma posição)
+    return bodyPos(MARS, d);
+  }
+  if (d < TOTAL_DAYS) {
+    // Regresso: parte de Marte e chega à posição exata da Terra no dia TOTAL_DAYS
+    return shipTransfer((d - OUT_DAYS - STAY_DAYS) / RET_DAYS, MARS_DEP_ANGLE, false);
+  }
+  return bodyPos(EARTH, d); // acoplada à Terra
+}
+
+/* ============================================================
+   Contrato de verificação — window.__bench
+   ============================================================ */
+let simDay = 0;                    // dia de missão atual
+let paused = false, daysPerSec = 4;
+
+window.__bench = {
+  bodies: BODIES.map(b => ({
+    name: b.name,
+    auRadius: b.au,
+    periodDays: b.T,
+    angleDeg0: b.a0,
+  })),
+  mission: {
+    departurePhaseAngleDeg: PHI0,            // ≈ 44.3° (Marte à frente da Terra)
+    outboundDays: OUT_DAYS,                  // 259
+    stayDays: STAY_DAYS,                     // ≈ 453.8
+    returnDays: RET_DAYS,                    // 259
+    totalDays: TOTAL_DAYS,                   // ≈ 971.8
+  },
+  setMissionDay(day) { simDay = Number(day); },
+  getState() {
+    const p = shipAt(simDay);
+    return { missionDay: simDay, shipAU: { x: p.x, y: p.y } };
+  },
+};
+
+/* ============================================================
+   Render
+   ============================================================ */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+
+// estrelas (relativas, independentes do resize)
+const STARS = Array.from({ length: 170 }, () => ({
+  x: Math.random(), y: Math.random(),
+  r: Math.random() * 1.3 + 0.3, a: Math.random() * 0.55 + 0.15,
+}));
+
+// trajetos completos (estáticos, em AU) para traçar
+const PATH_OUT = [], PATH_RET = [], PATH_STAY = [];
+for (let i = 0; i <= 120; i++) PATH_OUT.push(shipTransfer(i / 120, EARTH.a0, true));
+for (let i = 0; i <= 120; i++) PATH_RET.push(shipTransfer(i / 120, MARS_DEP_ANGLE, false));
+for (let i = 0; i <= 80; i++) PATH_STAY.push(bodyPos(MARS, OUT_DAYS + STAY_DAYS * i / 80));
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = Math.max(rect.width, 1); H = Math.max(rect.height, 1);
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+}
+window.addEventListener("resize", resize);
+resize();
+
+let cx = 0, cy = 0, AU = 200;
+function auToPx(p) { return { x: cx + p.x * AU, y: cy - p.y * AU }; } // y invertido (CCW no ecrã)
+
+function drawScene(day) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // fundo
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.75);
+  g.addColorStop(0, "#0b1226"); g.addColorStop(1, "#04060d");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // estrelas
+  for (const s of STARS) {
+    ctx.globalAlpha = s.a; ctx.fillStyle = "#cfe0ff";
+    ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // órbitas
+  ctx.lineWidth = 1;
+  for (const b of BODIES) {
+    ctx.strokeStyle = "rgba(150,175,220,0.28)";
+    ctx.beginPath(); ctx.arc(cx, cy, b.au * AU, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // trajetos da nave (completos, traço fino tracejado)
+  ctx.setLineDash([5, 6]);
+  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = "rgba(110,220,255,0.45)";
+  ctx.beginPath();
+  PATH_OUT.forEach((p, i) => { const q = auToPx(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,160,90,0.45)";
+  ctx.beginPath();
+  PATH_RET.forEach((p, i) => { const q = auToPx(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,120,120,0.30)";
+  ctx.beginPath();
+  PATH_STAY.forEach((p, i) => { const q = auToPx(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Sol
+  const sg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 34);
+  sg.addColorStop(0, "#fff7d6"); sg.addColorStop(0.35, "#ffd23e"); sg.addColorStop(1, "rgba(255,150,40,0)");
+  ctx.fillStyle = sg;
+  ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ffe9a0";
+  ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+
+  // planetas + etiquetas
+  ctx.font = "12px ui-monospace, monospace";
+  for (const b of BODIES) {
+    const q = auToPx(bodyPos(b, day));
+    ctx.shadowColor = b.color; ctx.shadowBlur = 8;
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.arc(q.x, q.y, b.size, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(230,240,255,0.85)";
+    ctx.fillText(b.name, q.x + b.size + 5, q.y - 5);
+  }
+
+  // nave (segmentos percorridos, mais intensos)
+  const d = ((day % TOTAL_DAYS) + TOTAL_DAYS) % TOTAL_DAYS;
+  ctx.lineWidth = 2;
+  if (d < OUT_DAYS) {
+    const n = Math.max(2, Math.ceil(120 * d / OUT_DAYS));
+    ctx.strokeStyle = "rgba(130,235,255,0.95)";
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) { const q = auToPx(shipTransfer(i / n, EARTH.a0, true)); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+    ctx.stroke();
+  } else if (d < OUT_DAYS + STAY_DAYS) {
+    ctx.strokeStyle = "rgba(130,235,255,0.95)";
+    ctx.beginPath(); PATH_OUT.forEach((p, i) => { const q = auToPx(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+    const s = (d - OUT_DAYS) / STAY_DAYS;
+    const n = Math.max(1, Math.ceil(80 * s));
+    for (let i = 0; i <= n; i++) { const q = auToPx(PATH_STAY[Math.round(i * 80 / n)]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+    ctx.stroke();
+  } else if (d < TOTAL_DAYS) {
+    ctx.strokeStyle = "rgba(130,235,255,0.95)";
+    ctx.beginPath(); PATH_OUT.forEach((p, i) => { const q = auToPx(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+    ctx.stroke();
+    ctx.beginPath(); PATH_STAY.forEach((p, i) => { const q = auToPx(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+    ctx.stroke();
+    const s = (d - OUT_DAYS - STAY_DAYS) / RET_DAYS;
+    const n = Math.max(2, Math.ceil(120 * s));
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) { const q = auToPx(shipTransfer(i / n, MARS_DEP_ANGLE, false)); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+    ctx.stroke();
+  }
+
+  const sp = auToPx(shipAt(d));
+  ctx.shadowColor = "#9adfff"; ctx.shadowBlur = 14;
+  ctx.fillStyle = "#f4f9ff";
+  ctx.beginPath(); ctx.arc(sp.x, sp.y, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#d9f2ff";
+  ctx.fillText("nave", sp.x + 8, sp.y + 12);
+}
+
+/* ============================================================
+   FPS + loop de animação
+   ============================================================ */
+const elFpsNow = document.getElementById("fpsNow");
+const elFpsAvg = document.getElementById("fpsAvg");
+const elDay = document.getElementById("dayNow");
+const elPhase = document.getElementById("phaseLbl");
+document.getElementById("dayTotal").textContent = Math.round(TOTAL_DAYS);
+document.getElementById("phase0").textContent = PHI0.toFixed(1) + "°";
+document.getElementById("missionTable").innerHTML = `
+  <tr><td>Ângulo de fase à partida</td><td>${PHI0.toFixed(1)}°</td></tr>
+  <tr><td>Ida (Hohmann)</td><td>${OUT_DAYS} dias</td></tr>
+  <tr><td>Espera em Marte</td><td>${STAY_DAYS.toFixed(1)} dias</td></tr>
+  <tr><td>Regresso (Hohmann)</td><td>${RET_DAYS} dias</td></tr>
+  <tr><td>Total</td><td>${TOTAL_DAYS.toFixed(1)} dias</td></tr>`;
+
+function phaseLabel(day) {
+  const d = ((day % TOTAL_DAYS) + TOTAL_DAYS) % TOTAL_DAYS;
+  if (d < OUT_DAYS) return "fase: transferência de ida (Hohmann)";
+  if (d < OUT_DAYS + STAY_DAYS) return "fase: espera na superfície de Marte";
+  if (d < TOTAL_DAYS) return "fase: transferência de regresso (Hohmann)";
+  return "fase: chegada à Terra";
+}
+
+let lastTs = performance.now();
+let instFps = 0;
+const frameTimes = [];
+
+function frame(ts) {
+  let dt = (ts - lastTs) / 1000; lastTs = ts;
+  dt = Math.min(0.5, Math.max(0, dt));   // robusto a saltos/abas em segundo plano
+  if (dt > 0) {
+    const inst = 1 / dt;
+    instFps = instFps ? instFps * 0.85 + inst * 0.15 : inst;
+  }
+  frameTimes.push(ts);
+  while (frameTimes.length && frameTimes[0] < ts - 2000) frameTimes.shift();
+  const avg = frameTimes.length > 1 ? (frameTimes.length - 1) / ((ts - frameTimes[0]) / 1000) : instFps;
+
+  if (!paused) {
+    simDay += daysPerSec * dt;
+    while (simDay >= TOTAL_DAYS) simDay -= TOTAL_DAYS;   // missão em ciclo contínuo
+  }
+
+  cx = W / 2; cy = H / 2;
+  AU = (Math.min(W, H) / 2 - 30) / 1.524; // escala: a órbita de Marte (1.524 AU) cabe no ecrã
+
+  drawScene(simDay);
+
+  elFpsNow.textContent = instFps ? instFps.toFixed(1) : "—";
+  elFpsNow.className = instFps < 30 ? "fps-bad" : instFps < 50 ? "fps-warn" : "fps-ok";
+  elFpsAvg.textContent = (avg || 0).toFixed(1);
+  elFpsAvg.className = elFpsNow.className;
+  elDay.textContent = Math.floor(simDay);
+  elPhase.textContent = phaseLabel(simDay);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- controlos ---------------- */
+const btnPause = document.getElementById("btnPause");
+btnPause.addEventListener("click", () => {
+  paused = !paused;
+  btnPause.textContent = paused ? "▶ Retomar" : "⏸ Pausar";
+});
+const speedEl = document.getElementById("speed");
+const speedVal = document.getElementById("speedVal");
+speedEl.addEventListener("input", () => {
+  daysPerSec = parseFloat(speedEl.value);
+  speedVal.textContent = daysPerSec + " dias/s";
+});
+document.getElementById("btnRestart").addEventListener("click", () => { simDay = 0; });
+</script>
+</body>
+</html>

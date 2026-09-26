@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<title>Bolas em nonágono rotativo</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #0d1117;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  canvas {
+    background: #11161d;
+    border-radius: 10px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+  }
+</style>
+</head>
+<body>
+<canvas id="c" width="640" height="640"></canvas>
+<script>
+"use strict";
+(function () {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  // ---- Constantes da simulação ----
+  const N = 9;                 // nonágono
+  const R = 260;               // raio (circunraio) em px
+  const CX = 320, CY = 320;    // centro do canvas
+  const PERIOD = 7;            // segundos por rotação completa
+  const OMEGA = 2 * Math.PI / PERIOD; // rad/s, sentido horário (y para baixo)
+  const BALL_R = 14;
+  const NUM_BALLS = 13;
+  const GRAVITY = 1000;        // px/s^2
+  const AIR_K = 0.12;          // amortecimento do ar (1/s)
+  const REST = 0.82;           // restituição
+  const MU = 0.18;             // fricção de contacto (Coulomb)
+
+  // ---- Estado ----
+  let t = 0;                   // tempo decorrido (s)
+  let angle = 0;               // ângulo atual do polígono (rad)
+  let manualMode = false;      // true quando step() foi chamado
+
+  const balls = [];
+  (function init() {
+    const ringR = 62; // anel inicial próximo do centro, sem sobreposições
+    for (let i = 0; i < NUM_BALLS; i++) {
+      const a = -Math.PI / 2 + i * 2 * Math.PI / NUM_BALLS;
+      balls.push({
+        id: i,
+        x: CX + ringR * Math.cos(a),
+        y: CY + ringR * Math.sin(a),
+        vx: 0,
+        vy: 0,
+        rot: i * 0.7,          // ângulo de rotação da bola (para o spin visível)
+        angVel: 0
+      });
+    }
+  })();
+
+  // ---- Geometria do polígono ----
+  function vertices() {
+    const v = new Array(N);
+    for (let i = 0; i < N; i++) {
+      const a = angle + i * 2 * Math.PI / N;
+      v[i] = { x: CX + R * Math.cos(a), y: CY + R * Math.sin(a) };
+    }
+    return v;
+  }
+
+  // Velocidade de um ponto do polígono em rotação rígida (v = w x r)
+  function wallVelAt(px, py) {
+    return { x: -OMEGA * (py - CY), y: OMEGA * (px - CX) };
+  }
+
+  // ---- Colisão bola-parede (parede em movimento) ----
+  function collideWalls(b) {
+    const v = vertices();
+    for (let i = 0; i < N; i++) {
+      const A = v[i], B = v[(i + 1) % N];
+      const ex = B.x - A.x, ey = B.y - A.y;
+      const len = Math.hypot(ex, ey);
+      let nx = ey / len, ny = -ex / len;
+      // normal para dentro do polígono
+      if ((CX - A.x) * nx + (CY - A.y) * ny < 0) { nx = -nx; ny = -ny; }
+
+      const d = (b.x - A.x) * nx + (b.y - A.y) * ny;
+      if (d < BALL_R) {
+        // correção posicional
+        const pen = BALL_R - d;
+        b.x += nx * pen;
+        b.y += ny * pen;
+
+        // velocidade da parede no ponto de contacto
+        const cpx = b.x - nx * BALL_R;
+        const cpy = b.y - ny * BALL_R;
+        const wv = wallVelAt(cpx, cpy);
+
+        // velocidade relativa à parede
+        let rvx = b.vx - wv.x, rvy = b.vy - wv.y;
+        const vn = rvx * nx + rvy * ny;
+        if (vn < 0) {
+          // restituição na normal
+          rvx -= (1 + REST) * vn * nx;
+          rvy -= (1 + REST) * vn * ny;
+
+          // fricção de contacto (Coulomb) na tangente
+          const tx = -ny, ty = nx;
+          const vt = rvx * tx + rvy * ty;
+          const jn = (1 + REST) * (-vn);
+          const jt = Math.min(MU * jn, Math.abs(vt));
+          const s = vt >= 0 ? 1 : -1;
+          rvx -= jt * s * tx;
+          rvy -= jt * s * ty;
+
+          b.vx = rvx + wv.x;
+          b.vy = rvy + wv.y;
+
+          // spin da bola (rolagem): w = vt / r
+          b.angVel = vt / BALL_R;
+        }
+      }
+    }
+  }
+
+  // ---- Colisão bola-bola (massas iguais) ----
+  function collideBalls() {
+    for (let i = 0; i < balls.length; i++) {
+      for (let j = i + 1; j < balls.length; j++) {
+        const a = balls[i], b = balls[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let d = Math.hypot(dx, dy);
+        const min = 2 * BALL_R;
+        if (d >= min) continue;
+        if (d < 1e-9) { dx = 1; dy = 0; d = 1; }
+        const nx = dx / d, ny = dy / d;
+
+        // separar sobreposição
+        const pen = (min - d) / 2;
+        a.x -= nx * pen; a.y -= ny * pen;
+        b.x += nx * pen; b.y += ny * pen;
+
+        const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+        const vn = rvx * nx + rvy * ny;
+        if (vn < 0) {
+          const jimp = -(1 + REST) * vn / 2;
+          a.vx -= jimp * nx; a.vy -= jimp * ny;
+          b.vx += jimp * nx; b.vy += jimp * ny;
+
+          // fricção tangencial
+          const tx = -ny, ty = nx;
+          const vt = (b.vx - a.vx) * tx + (b.vy - a.vy) * ty;
+          const jt = Math.min(MU * Math.abs(jimp), Math.abs(vt)) / 2;
+          const s = vt >= 0 ? 1 : -1;
+          a.vx += jt * s * tx; a.vy += jt * s * ty;
+          b.vx -= jt * s * tx; b.vy -= jt * s * ty;
+
+          // spin
+          const av = vt / BALL_R;
+          a.angVel = 0.5 * a.angVel + 0.5 * av;
+          b.angVel = 0.5 * b.angVel - 0.5 * av;
+        }
+      }
+    }
+  }
+
+  // ---- Passo determinístico ----
+  function advance(dt) {
+    if (dt <= 0) return;
+    const H = 1 / 240;
+    const n = Math.max(1, Math.ceil(dt / H));
+    const h = dt / n;
+    for (let s = 0; s < n; s++) {
+      angle = (angle + OMEGA * h) % (2 * Math.PI);
+
+      // integração semi-implícita
+      for (const b of balls) {
+        b.vy += GRAVITY * h;
+        const f = Math.exp(-AIR_K * h);
+        b.vx *= f;
+        b.vy *= f;
+        b.x += b.vx * h;
+        b.y += b.vy * h;
+      }
+
+      // resolução iterativa das colisões
+      for (let it = 0; it < 6; it++) {
+        for (const b of balls) collideWalls(b);
+        collideBalls();
+      }
+
+      // garantia final: dentro do polígono e sem sobreposição
+      for (const b of balls) {
+        const v = vertices();
+        let worst = Infinity, wnx = 0, wny = 0;
+        for (let i = 0; i < N; i++) {
+          const A = v[i], B = v[(i + 1) % N];
+          const ex = B.x - A.x, ey = B.y - A.y;
+          const len = Math.hypot(ex, ey);
+          let nx = ey / len, ny = -ex / len;
+          if ((CX - A.x) * nx + (CY - A.y) * ny < 0) { nx = -nx; ny = -ny; }
+          const d = (b.x - A.x) * nx + (b.y - A.y) * ny;
+          if (d < worst) { worst = d; wnx = nx; wny = ny; }
+        }
+        if (worst < BALL_R) {
+          b.x += wnx * (BALL_R - worst);
+          b.y += wny * (BALL_R - worst);
+        }
+      }
+      for (let i = 0; i < balls.length; i++) {
+        for (let j = i + 1; j < balls.length; j++) {
+          const a = balls[i], b = balls[j];
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const d = Math.hypot(dx, dy);
+          const min = 2 * BALL_R;
+          if (d >= min || d < 1e-9) continue;
+          const nx = dx / d, ny = dy / d;
+          const pen = (min - d) / 2;
+          a.x -= nx * pen; a.y -= ny * pen;
+          b.x += nx * pen; b.y += ny * pen;
+        }
+      }
+
+      // rotação das bolas (spin)
+      for (const b of balls) {
+        b.rot += b.angVel * h;
+        b.angVel *= Math.exp(-0.6 * h);
+      }
+    }
+    t += dt;
+  }
+
+  // ---- Desenho ----
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const v = vertices();
+    ctx.beginPath();
+    ctx.moveTo(v[0].x, v[0].y);
+    for (let i = 1; i < N; i++) ctx.lineTo(v[i].x, v[i].y);
+    ctx.closePath();
+    ctx.strokeStyle = "#4f8cff";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    for (const b of balls) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.rot);
+      const g = ctx.createRadialGradient(-4, -4, 2, 0, 0, BALL_R);
+      g.addColorStop(0, "#ffd27a");
+      g.addColorStop(1, "#e07b2a");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, BALL_R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = "#1a1a1a";
+      ctx.font = "bold 12px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(b.id), 0, 0.5);
+      ctx.restore();
+    }
+  }
+
+  // ---- Loop de animação ----
+  let last = performance.now();
+  function frame(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05;
+    if (!manualMode) advance(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---- Contrato de verificação ----
+  window.__bench = {
+    getState() {
+      return {
+        t: t,
+        poly: {
+          n: N,
+          radius: R,
+          cx: CX,
+          cy: CY,
+          angle: angle,
+          periodSec: PERIOD
+        },
+        balls: balls.map(b => ({
+          id: b.id,
+          x: b.x,
+          y: b.y,
+          r: BALL_R,
+          vx: b.vx,
+          vy: b.vy
+        }))
+      };
+    },
+    step(dtSeconds) {
+      manualMode = true;
+      advance(dtSeconds);
+    }
+  };
+})();
+</script>
+</body>
+</html>
