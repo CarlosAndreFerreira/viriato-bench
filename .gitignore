@@ -11,3 +11,7 @@ harness/*/*
 !harness/*/settings.json
 !harness/ollama/*.Modelfile
 harness/sol-pi-src/
+# prime-agent grava a mensagem acumulada inteira em cada evento message_update:
+# os originais chegam a 1.4 GB. No git fica logs/*.events.compact.jsonl, igual
+# linha a linha ao original sem esse campo (verificado a 2026-09-26).
+logs/prime-agent-qwen3.8-t02-v1-polygon-*.json.events.jsonl
