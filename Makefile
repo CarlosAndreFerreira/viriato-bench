@@ -1,4 +1,4 @@
-.PHONY: setup smoke claude qwen score dash check-reference clean
+.PHONY: setup smoke claude qwen score dash slides arena check-reference clean
 
 setup:            ## verifica o ambiente
 	./setup.sh
@@ -18,6 +18,15 @@ score:            ## agrega em pass@1
 
 dash:             ## abre o dashboard
 	xdg-open dashboard/index.html
+
+slides:           ## abre a apresentacao (serve o repo em 127.0.0.1:8765 para os iframes)
+	@python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 & sleep 1; \
+	 xdg-open http://127.0.0.1:8765/slides/presentation_viriato_en.html; \
+	 echo "servidor em 127.0.0.1:8765 - para parar: pkill -f 'http.server 8765'"
+
+arena:            ## abre o explorador interativo da arena multi-modelo
+	xdg-open arena/index.html
+
 
 check-reference:  ## prova que os 3 checkers sao passaveis (V1, V2, V3)
 	@rm -rf /tmp/lb-ref && mkdir -p /tmp/lb-ref/v1 /tmp/lb-ref/v2 /tmp/lb-ref/v3

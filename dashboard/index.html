@@ -43,6 +43,11 @@
 <h1>Lusitano Bench</h1>
 <div class="sub">pass@1 por tarefa, lado e harness. Estetica nao entra aqui — isso e o voto cego.</div>
 
+<div style="margin-bottom:16px; display:flex; gap:8px;">
+  <a href="../arena/index.html" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:13px; background:var(--panel); border:1px solid var(--line); padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">🏟 Abrir Arena Multi-Modelo</a>
+  <a href="../slides/presentation_viriato_en.html" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:13px; background:var(--panel); border:1px solid var(--line); padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">📽 Ver Slides de Apresentação</a>
+</div>
+
 <div class="drop">
   Carrega o <code>results.csv</code> gerado pelo <code>bench.sh</code>:
   <input type="file" id="f" accept=".csv">
@@ -100,6 +105,12 @@ function aggregate(rows, allBatches){
     }
     const scored = rs.filter(r => r.skip !== "1");
     const passes = scored.filter(r => r.pass === "1").length;
+    // Mesma regra do score.py: um pass com timeout_hit=1 nao e um pass. O
+    // verificador correu sobre ficheiros que estavam certos no instante em que
+    // o processo foi morto, com o agente ainda a iterar. O numero citavel e o
+    // limpo; o largo fica ao lado para se ver a diferenca.
+    const late = scored.filter(r => r.pass === "1" && r.timeout_hit === "1").length;
+    const clean = passes - late;
     const walls = rs.map(r => numOr(r.wall_s)).filter(v => v !== null);
     const costs = rs.map(r => numOr(r.cost_usd)).filter(v => v !== null);
     walls.sort((a,b)=>a-b);
@@ -107,8 +118,9 @@ function aggregate(rows, allBatches){
       agent, task, side,
       k: scored.length,
       skips: rs.length - scored.length,
-      passes,
-      rate: scored.length ? passes/scored.length : null,
+      passes, late, clean,
+      rate: scored.length ? clean/scored.length : null,
+      wideRate: scored.length ? passes/scored.length : null,
       wall: walls.length ? walls[Math.floor(walls.length/2)] : null,
       cost: costs.length ? costs.reduce((a,b)=>a+b,0) : null
     };
@@ -122,7 +134,7 @@ function render(rows){
   const bySide = {};
   for (const r of agg){
     bySide[r.side] ??= {p:0, k:0, wall:0, n:0, cost:0};
-    bySide[r.side].p += r.passes; bySide[r.side].k += r.k;
+    bySide[r.side].p += r.clean; bySide[r.side].k += r.k;
     if (r.wall !== null){ bySide[r.side].wall += r.wall; bySide[r.side].n++; }
     if (r.cost !== null) bySide[r.side].cost += r.cost;
   }
@@ -135,7 +147,7 @@ function render(rows){
         ${s.cost ? "$"+s.cost.toFixed(2) : "custo marginal 0"}</div>
     </div>`).join("");
 
-  const cols = ["agent","task","side","pass@1","runs","mediana (s)","custo est."];
+  const cols = ["agent","task","side","pass@1 limpo","runs limpos","pass@1 largo","mediana (s)","custo est."];
   $("#t thead").innerHTML = "<tr>" + cols.map(c=>`<th>${c}</th>`).join("") + "</tr>";
   $("#t tbody").innerHTML = agg.map(r => {
     const pct = r.rate === null ? "—" : Math.round(r.rate*100) + "%";
@@ -146,7 +158,9 @@ function render(rows){
       <td><span class="tag">${r.agent}</span></td>
       <td>${r.task}</td><td>${r.side}</td>
       <td>${bar}<span class="${cls}">${pct}</span></td>
-      <td>${r.passes}/${r.k}${r.skips ? ` <span class="skip">+${r.skips} skip</span>` : ""}</td>
+      <td>${r.clean}/${r.k}${r.skips ? ` <span class="skip">+${r.skips} skip</span>` : ""}</td>
+      <td>${r.wideRate === null ? "—" : Math.round(r.wideRate*100) + "%"}${
+        r.late ? ` <span class="skip">+${r.late} fora de tempo</span>` : ""}</td>
       <td>${r.wall ?? "—"}</td>
       <td>${r.cost ? "$"+r.cost.toFixed(4) : "—"}</td>
     </tr>`;
@@ -154,15 +168,21 @@ function render(rows){
 
   const flaky = agg.filter(r => r.rate !== null && r.rate > 0 && r.rate < 1);
   const skipped = agg.filter(r => r.skips > 0);
+  const lateRows = agg.filter(r => r.late > 0);
   $("#note").innerHTML = [
+    lateRows.length ? `<b>Passes fora de tempo:</b> ${lateRows.map(r=>
+      `${r.task}/${r.side} (${r.late} de ${r.passes})`).join(", ")} —
+      o verificador aceitou, mas o agente foi morto pelo timeout enquanto ainda
+      iterava. Estao no pass@1 largo e fora do limpo. Nao sao vitorias.` : "",
     flaky.length ? `<b>Instaveis:</b> ${flaky.map(r=>`${r.task}/${r.side} (${r.passes}/${r.k})`).join(", ")}.
-      Uma run isolada teria mentido nestas. E isto que justifica o k&ge;3.` : "",
+      Uma run isolada teria mentido nestas (por pass@1 limpo). E isto que justifica o k&ge;3.` : "",
     skipped.length ? `<b>Skips:</b> ${skipped.map(r=>`${r.task}/${r.side}`).join(", ")} —
       verificador indisponivel. Nao contam como pass.` : "",
     multiBatch.length ? `<b>Batches:</b> ${multiBatch.map(m=>
       `${m.task}/${m.side} (batch ativo "${m.latestBatch}", ${m.totalBatches} batches no total, ${m.dropped} runs mais antigas ignoradas)`
       ).join(", ")}. Marca "juntar todos os batches" para veres tudo.` : "",
-    `<b>Leitura:</b> esta tabela mede correcao, nao qualidade percebida.`
+    `<b>Leitura:</b> esta tabela mede correcao, nao qualidade percebida. As
+      percentagens dos cartoes e a coluna "pass@1 limpo" excluem passes fora de tempo.`
   ].filter(Boolean).join("<br>");
 }
 
