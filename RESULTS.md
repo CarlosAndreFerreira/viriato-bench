@@ -265,7 +265,7 @@ o primeiro prompt que chegou ao Ollama tinha **4428 tokens**, contra 17 835.
 
 - **3/3 limpos** — o mesmo nível do pi (2/3) e do pi-sol (3/3) com o mesmo
   modelo. Contra as outras 9 runs do claude-code + `qwen3.8-t02` no v1 (1/9
-  limpos): **Fisher p = 0.0045**. Contra a melhor configuração anterior
+  limpos): **Fisher p = 0.018**. Contra a melhor configuração anterior
   (1/3): p = 0.2.
 - **O ciclo do agente do Claude Code não era o problema; o pedido era.** Com
   as mesmas instruções e ferramentas equivalentes às do pi, o claude-code
