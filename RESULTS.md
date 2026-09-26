@@ -302,6 +302,46 @@ pedidos secundários mudaria o resultado.
 Os harnesses leves foram 3 a 5 vezes mais rápidos, mas **cada um tem K=1**.
 É uma observação, não uma conclusão.
 
+### 3.5 No opencode, a temperatura 0.2 não melhorou
+
+Batch `oc-temp-k3`, 2026-09-26: opencode com `qwen3.8`, a temperatura
+**enviada no pedido** (PROTOCOL 2.4, capturado antes de correr). Os dois
+braços diferem só na temperatura: `qwen` → 1, `qwen3.8-t02` → 0.2, ambos com
+`top_p` 0.95 e as mesmas 6 ferramentas, K=3, `TIMEOUT_S` 3000. Smoke no
+a1-bugfix (`oc-smoke`, só a 0.2): pass limpo em 152 s.
+
+| Run | Temp. | Turnos | Ferramentas | Raciocínio (car.) | Fim | Resultado |
+|---|---|---|---|---|---|---|
+| v1-polygon 1 | 0.2 | 1 | 0 | 105 428 | `length`, 1728 s | falha, pasta vazia |
+| v1-polygon 2 | 0.2 | 1 | 0 | 109 976 | `length`, 1699 s | falha, pasta vazia |
+| v1-polygon 3 | 0.2 | 22 | 21 | 54 484 | 1760 s | **pass limpo** |
+| v2-solar 1 | 0.2 | 2 | 2 | 138 296 | timeout | falha |
+| v2-solar 2 | 0.2 | 1 | 0 | 83 738 | `length`, 1500 s | falha, pasta vazia |
+| v2-solar 3 | 0.2 | 1 | 0 | 94 058 | `length`, 1547 s | falha, pasta vazia |
+| v1-polygon 1 | 1 | 3 | 2 | 25 311 | 645 s | **pass limpo** |
+| v1-polygon 2 | 1 | 1 | 1 | 69 351 | timeout | falha |
+| v1-polygon 3 | 1 | 11 | 10 | 41 396 | 1261 s | **pass limpo** |
+| v2-solar 1 | 1 | 1 | 0 | 88 877 | `length`, 1806 s | falha, pasta vazia |
+| v2-solar 2 | 1 | 1 | 0 | 86 146 | `length`, 1834 s | falha, pasta vazia |
+| v2-solar 3 | 1 | 1 | 0 | 84 315 | `length`, 1884 s | falha, pasta vazia |
+
+- **Passes limpos: 0.2 → 1/6, temperatura 1 → 2/6.** A hipótese "0.2 melhora"
+  tem Fisher unilateral **p = 0.91**; bilateral p = 1.0. Nenhum pass fora de
+  tempo em nenhum braço.
+- **O modo de falha é o mesmo nos dois braços**: um único turno de
+  raciocínio que esgota o `max_tokens` de 32 000 sem chamar nenhuma ferramenta
+  (`stop_reason: length`) — 4/6 runs a 0.2, 3/6 a 1 (p = 1.0). O opencode
+  termina a sessão quando isso acontece, antes do timeout.
+- O raciocínio total por run não é menor a 0.2 (mediana 100 mil contra 77 mil
+  car.; Mann-Whitney p = 0.09, na direção contrária à hipótese).
+- **Limite do que isto prova.** Com K=3 por tarefa, só um efeito grande seria
+  detetável (6/6 contra 2/6 daria p = 0.03; 5/6 contra 2/6 ainda p = 0.12). O
+  que fica provado é que **não há o efeito grande** que o §2 parecia mostrar,
+  não que a temperatura não tenha efeito nenhum.
+
+Com o §6.7, é a segunda comparação de temperatura válida do bench, e as duas
+concordam: claude-code 0/6 contra 0/6, opencode 1/6 contra 2/6.
+
 ## 4. O modelo especializado em código entregou lixo depressa
 
 `qwen3-coder-t02`, `v1-polygon`: `index.html` escrito aos **87 s**, 2 turnos, 0
@@ -517,7 +557,8 @@ agora cortava a comparabilidade com as runs já feitas.
 - **"O local iguala o frontier."** O Claude fez 12/12 limpos em 124–515 s. O
   local, no melhor caso, 9/12 nas tarefas visuais, 2 a 6 vezes mais lento.
 - **"A 0.2 o local resolve".** Nos harnesses leves a 0.2 nunca chegou ao
-  modelo (§6.7); no claude-code, onde chegou, deu 0/6 limpos (§3.3).
+  modelo (§6.7); no claude-code, onde chegou, deu 0/6 limpos (§3.3); no
+  opencode, enviada no pedido, 1/6 contra 2/6 a temperatura 1 (§3.5).
 - **Nada sobre o v3-viriato local a 0.2** — nunca correu. O único pass local no
   v3 (`qwen3.8-flash-next`) foi fora de tempo.
 - **Nada sobre energia** (§6.3), nem sobre "sem raciocínio" (§6.1).
@@ -531,6 +572,7 @@ agora cortava a comparabilidade com as runs já feitas.
 | ~~3~~ | ~~Incluir o `batch_id` nas pastas e logs~~ | **Feito a 2026-09-24** (§6.2). |
 | ~~4~~ | ~~claude-code + `qwen3.8-t02`~~ | **Feito a 2026-09-25** (§3.3): 0/6, o harness conta. |
 | ~~5~~ | ~~v3 e a1 com `qwen3.8-t02`~~ | **Feito a 2026-09-25 no pi** (§2): a1 3/3, v3 2/3. |
+| ~~7~~ | ~~Temperatura 0.2 enviada no pedido (opencode)~~ | **Feito a 2026-09-26** (§3.5): 1/6 contra 2/6, sem efeito. |
 | 6 | Um teste real de "sem raciocínio" | O `pi-off-v1` não o testou (§6.1). Precisa de `reasoning_effort: none` enviado ao Ollama. |
 
 ### Memória: correção à explicação do OOM

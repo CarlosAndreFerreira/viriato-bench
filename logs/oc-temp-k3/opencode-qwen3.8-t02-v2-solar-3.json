@@ -1,0 +1,1 @@
+{"type": "result", "harness": "opencode", "num_turns": 1, "tool_calls": 0, "reasoning_chars": 94058, "duration_ms": 1546794, "total_cost_usd": 0.0, "is_error": false, "stop_reason": "length", "error": null, "result": null}

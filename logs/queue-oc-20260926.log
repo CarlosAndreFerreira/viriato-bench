@@ -1,0 +1,58 @@
+[guard 16:39:46] avail=112G carregados=[]
+batch: oc-smoke
+==> opencode / qwen3.8-t02 / a1-bugfix / run 1
+    pass=1  turns=7  wall=152s  cost=0
+
+batch oc-smoke completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard 16:42:21] avail=112G carregados=[]
+batch: oc-temp-k3
+==> opencode / qwen3.8-t02 / v1-polygon / run 1
+    pass=0  turns=1  wall=1728s  cost=0
+==> opencode / qwen3.8-t02 / v1-polygon / run 2
+    pass=0  turns=1  wall=1698s  cost=0
+==> opencode / qwen3.8-t02 / v1-polygon / run 3
+    pass=1  turns=22  wall=1760s  cost=0
+
+batch oc-temp-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard 18:08:52] avail=111G carregados=[]
+batch: oc-temp-k3
+==> opencode / qwen / v1-polygon / run 1
+    pass=1  turns=3  wall=645s  cost=0
+==> opencode / qwen / v1-polygon / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> opencode / qwen / v1-polygon / run 3
+    pass=1  turns=11  wall=1261s  cost=0
+
+batch oc-temp-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard 19:30:45] avail=111G carregados=[]
+batch: oc-temp-k3
+==> opencode / qwen3.8-t02 / v2-solar / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> opencode / qwen3.8-t02 / v2-solar / run 2
+    pass=0  turns=1  wall=1500s  cost=0
+==> opencode / qwen3.8-t02 / v2-solar / run 3
+    pass=0  turns=1  wall=1547s  cost=0
+
+batch oc-temp-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard 21:11:35] avail=111G carregados=[]
+batch: oc-temp-k3
+==> opencode / qwen / v2-solar / run 1
+    pass=0  turns=1  wall=1806s  cost=0
+==> opencode / qwen / v2-solar / run 2
+    pass=0  turns=1  wall=1834s  cost=0
+==> opencode / qwen / v2-solar / run 3
+    pass=0  turns=1  wall=1884s  cost=0
+
+batch oc-temp-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard 22:43:42] avail=111G carregados=[]
+FILA OC TERMINADA sábado 26 set 2026 22:43:42 WEST

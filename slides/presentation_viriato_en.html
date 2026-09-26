@@ -225,7 +225,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 11 TEMPERATURE (corrected 2026-09-26, RESULTS.md 6.7) -->
-<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> This slide used to say one Modelfile line, temperature 1.0 to 0.2, unlocked the model. That was wrong, and the way we found out is the point. The two tags on pi and pi-sol really did go 0/5 to 9/12, p = 0.009. But pi talks to Ollama through the OpenAI-compatible endpoint and never sends a temperature, and that endpoint ignores the Modelfile temperature. Proof: a tag with temperature 0 gives 1 distinct answer in 8 on Ollama's native API and 8 in 8 on /v1. So both arms ran with the same sampling: the difference is real, but it is not temperature. What else differed: PI_THINKING (high/off vs medium) and the dates — cause open. The only harness where 0.2 actually reached the model is Claude Code, which uses /v1/messages: 0/6 at 1.0, 0/6 at 0.2 — no effect seen. Lesson: capture the request; a config file is a claim, not a measurement. A retest with the temperature sent explicitly (opencode, K=3 per arm) is running.">
+<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> This slide used to say one Modelfile line, temperature 1.0 to 0.2, unlocked the model. That was wrong, and the way we found out is the point. The two tags on pi and pi-sol really did go 0/5 to 9/12, p = 0.009. But pi talks to Ollama through the OpenAI-compatible endpoint and never sends a temperature, and that endpoint ignores the Modelfile temperature. Proof: a tag with temperature 0 gives 1 distinct answer in 8 on Ollama's native API and 8 in 8 on /v1. So both arms ran with the same sampling: the difference is real, but it is not temperature. What else differed: PI_THINKING (high/off vs medium) and the dates — cause open. The only harness where 0.2 actually reached the model is Claude Code, which uses /v1/messages: 0/6 at 1.0, 0/6 at 0.2 — no effect seen. Lesson: capture the request; a config file is a claim, not a measurement. The retest with the temperature sent explicitly, opencode, K=3 per arm: 1/6 at 0.2 against 2/6 at 1.0, same failure mode in both — no gain.">
   <div class="kicker">Correction · one line in a Modelfile</div>
   <h2><code>temperature 0.2</code> never reached the model</h2>
   <div class="row">
@@ -239,7 +239,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
       <div class="small"><code>/api/chat</code> (native)</div><div class="bar"><i data-w="12.5" style="background:var(--pass)"></i><b class="pass">1/8</b></div>
       <div class="small" style="margin-top:12px"><code>/v1/chat/completions</code> (pi, opencode)</div><div class="bar"><i data-w="100" style="background:var(--fail)"></i><b class="fail">8/8</b></div>
       <p class="small" style="margin-top:14px">pi sends no <code>temperature</code> (request captured). Where 0.2 <i>did</i> arrive — Claude Code, <code>/v1/messages</code>: <b>0/6</b> at 1.0 vs <b>0/6</b> at 0.2. No effect seen.</p>
-      <p class="tiny" style="margin-top:10px">Qwen's model card recommends 1.0 for thinking mode anyway. Retest with the temperature sent explicitly (opencode, K=3 per arm): running.</p></div>
+      <p class="tiny" style="margin-top:10px">Qwen's model card recommends 1.0 for thinking mode anyway. Retest with the temperature sent explicitly (opencode, K=3 per arm): <b>1/6 at 0.2 vs 2/6 at 1.0</b> — no gain.</p></div>
   </div>
   <div class="src rv">RESULTS.md §6.7 · verify/ollama_v1_temperature_probe.py · Ollama 0.33.3</div>
 </section>
@@ -435,7 +435,7 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
 </section>
 
 <!-- 24 Q&A -->
-<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: not shown; where it reached the model (Claude Code) 0/6 vs 0/6, retest running. 'Is it the harness or the model?' → slide 16. 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
+<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: no — where it actually reached the model, Claude Code 0/6 vs 0/6 and opencode 1/6 vs 2/6. 'Is it the harness or the model?' → slide 16. 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
   <div class="kicker">Everything is in the repository</div>
   <h2>Questions — and where to check the answers</h2>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
