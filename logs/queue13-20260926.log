@@ -1,0 +1,11 @@
+[guard] 2026-09-26T09:54:22+01:00 disponivel=116GiB carregados=[]
+batch: cc-t02-noness-effmed-k3
+claude-code --effort medium
+==> claude-code / qwen3.8-t02 / v1-polygon / run 3
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+
+batch cc-t02-noness-effmed-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-26T10:44:25+01:00 disponivel=114GiB carregados=[]
+FILA 13 COMPLETA

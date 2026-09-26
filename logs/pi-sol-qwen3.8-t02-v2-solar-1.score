@@ -1,0 +1,2 @@
+FAIL (1 problemas):
+  - no dia 972 (regresso a Terra) a nave esta a 1.75 UA da posicao real esperada -0.53,-0.85 (tolerancia 0.35 UA)

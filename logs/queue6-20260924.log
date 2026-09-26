@@ -1,0 +1,32 @@
+batch: claude-a1-k3
+==> claude-code / claude / a1-bugfix / run 1
+    pass=1  turns=12  wall=146s  cost=1.3336355
+==> claude-code / claude / a1-bugfix / run 2
+    pass=1  turns=13  wall=138s  cost=1.76240825
+==> claude-code / claude / a1-bugfix / run 3
+    pass=1  turns=14  wall=124s  cost=1.0194895
+
+batch claude-a1-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+batch: 20260920T175932-87305
+==> claude-code / claude / v3-viriato / run 2
+    pass=1  turns=20  wall=486s  cost=3.1445549999999995
+==> claude-code / claude / v3-viriato / run 3
+    pass=1  turns=13  wall=515s  cost=2.6101975
+
+batch 20260920T175932-87305 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-24T10:55:10+01:00 disponivel=116GiB carregados=[]
+batch: prime-t02-v1
+==> prime-agent / qwen3.8-t02 / v1-polygon / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3003s
+==> prime-agent / qwen3.8-t02 / v1-polygon / run 3
+    pass=1  turns=7  wall=2220s  cost=0
+
+batch prime-t02-v1 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-24T12:22:16+01:00 disponivel=116GiB carregados=[]
+FILA 6 COMPLETA

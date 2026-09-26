@@ -1,0 +1,1 @@
+{"type": "result", "harness": "pi", "num_turns": 29, "duration_ms": 3000103, "total_cost_usd": 0.0, "is_error": true, "stop_reason": "toolUse", "error": null, "result": "Vou perfilar para ver onde vai o tempo:"}

@@ -1,0 +1,38 @@
+[guard] 2026-09-23T16:27:19+01:00 disponivel=117GiB carregados=[]
+batch: t02-k3-pi
+==> pi / qwen3.8-t02 / v1-polygon / run 1
+    pass=1  turns=18  wall=1280s  cost=0
+==> pi / qwen3.8-t02 / v1-polygon / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> pi / qwen3.8-t02 / v1-polygon / run 3
+    pass=1  turns=4  wall=645s  cost=0
+==> pi / qwen3.8-t02 / v2-solar / run 1
+    pass=1  turns=8  wall=2087s  cost=0
+==> pi / qwen3.8-t02 / v2-solar / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> pi / qwen3.8-t02 / v2-solar / run 3
+    pass=1  turns=4  wall=1838s  cost=0
+
+batch t02-k3-pi completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-23T19:45:01+01:00 disponivel=116GiB carregados=[]
+batch: t02-k3-sol
+==> pi-sol / qwen3.8-t02 / v1-polygon / run 1
+    pass=1  turns=8  wall=566s  cost=0
+==> pi-sol / qwen3.8-t02 / v1-polygon / run 2
+    pass=1  turns=6  wall=1079s  cost=0
+==> pi-sol / qwen3.8-t02 / v1-polygon / run 3
+    pass=1  turns=39  wall=2719s  cost=0
+==> pi-sol / qwen3.8-t02 / v2-solar / run 1
+    pass=0  turns=26  wall=2857s  cost=0
+==> pi-sol / qwen3.8-t02 / v2-solar / run 2
+    pass=1  turns=11  wall=1976s  cost=0
+==> pi-sol / qwen3.8-t02 / v2-solar / run 3
+    pass=1  turns=3  wall=2744s  cost=0
+
+batch t02-k3-sol completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-23T23:04:18+01:00 disponivel=116GiB carregados=[]
+FILA 4 COMPLETA

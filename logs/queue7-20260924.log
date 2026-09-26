@@ -1,0 +1,36 @@
+[guard] 2026-09-24T14:12:39+01:00 disponivel=115GiB carregados=[]
+batch: 20260919T232608-52437
+==> claude-code / qwen / a1-bugfix / run 2
+    pass=1  turns=11  wall=489s  cost=0
+==> claude-code / qwen / a1-bugfix / run 3
+    pass=1  turns=10  wall=813s  cost=0
+
+batch 20260919T232608-52437 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-24T14:34:21+01:00 disponivel=80GiB carregados=[]
+batch: 20260918T145715-362672
+==> claude-code / qwen / v1-polygon / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> claude-code / qwen / v1-polygon / run 3
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+==> claude-code / qwen / v2-solar / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> claude-code / qwen / v2-solar / run 3
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+
+batch 20260918T145715-362672 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-24T17:54:24+01:00 disponivel=95GiB carregados=[]
+batch: run-qwen-v3-1789859164
+==> claude-code / qwen / v3-viriato / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> claude-code / qwen / v3-viriato / run 3
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+
+batch run-qwen-v3-1789859164 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-24T19:34:25+01:00 disponivel=80GiB carregados=[]
+FILA 7 COMPLETA

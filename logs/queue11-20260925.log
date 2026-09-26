@@ -1,0 +1,14 @@
+[guard] 2026-09-25T18:54:08+01:00 disponivel=114GiB carregados=[]
+batch: cc-t02-noness-k3
+==> claude-code / qwen3.8-t02 / v1-polygon / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> claude-code / qwen3.8-t02 / v1-polygon / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+==> claude-code / qwen3.8-t02 / v1-polygon / run 3
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+
+batch cc-t02-noness-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-25T21:24:11+01:00 disponivel=79GiB carregados=[]
+FILA 11 COMPLETA

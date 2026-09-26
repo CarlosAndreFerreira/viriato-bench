@@ -1,0 +1,6 @@
+FAIL (5 problemas):
+  - [seed 1] generate_maze rebentou: NameError("name 'MAX_CORRIDOR' is not defined")
+  - [seed 7] generate_maze rebentou: NameError("name 'MAX_CORRIDOR' is not defined")
+  - [seed 42] generate_maze rebentou: NameError("name 'MAX_CORRIDOR' is not defined")
+  - [seed 1234] generate_maze rebentou: NameError("name 'MAX_CORRIDOR' is not defined")
+  - maze.py nao expoe render()

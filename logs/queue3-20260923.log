@@ -1,0 +1,36 @@
+[guard] 2026-09-23T13:53:06+01:00 disponivel=114GiB carregados=[]
+batch: sampling-v1
+==> pi / qwen3-coder-t02 / v1-polygon / run 1
+    pass=0  turns=2  wall=95s  cost=0
+
+batch sampling-v1 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-23T13:54:43+01:00 disponivel=118GiB carregados=[]
+batch: pi-off-v1
+==> pi / qwen / v1-polygon / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+
+batch pi-off-v1 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-23T14:44:45+01:00 disponivel=117GiB carregados=[]
+batch: pi-sol-smoke
+==> pi-sol / qwen / a1-bugfix / run 1
+    pass=1  turns=5  wall=144s  cost=0
+
+batch pi-sol-smoke completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-23T14:47:09+01:00 disponivel=117GiB carregados=[]
+batch: pi-sol-high-v1v2
+==> pi-sol / qwen / v1-polygon / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> pi-sol / qwen / v2-solar / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+
+batch pi-sol-high-v1v2 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-23T16:27:12+01:00 disponivel=96GiB carregados=[]
+FILA 3 COMPLETA

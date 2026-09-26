@@ -1,0 +1,5 @@
+[guard] 2026-09-24T23:03:59+01:00 disponivel=115GiB carregados=[]
+batch: cc-t02-k3
+==> claude-code / qwen3.8-t02 / v1-polygon / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+==> claude-code / qwen3.8-t02 / v1-polygon / run 2

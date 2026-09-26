@@ -1,0 +1,8 @@
+[guard] 2026-09-25T22:27:43+01:00 disponivel=112GiB carregados=[]
+batch: cc-t02-noness-effmed-k3
+claude-code --effort medium
+==> claude-code / qwen3.8-t02 / v1-polygon / run 1
+    pass=1  turns=5  wall=2330s  cost=0
+==> claude-code / qwen3.8-t02 / v1-polygon / run 2
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> claude-code / qwen3.8-t02 / v1-polygon / run 3

@@ -1,0 +1,3 @@
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+Warning: Advisor disabled — base model 'qwen3.8-t02' has no advisor rank in the model catalog. Switch to a public model alias (opus, sonnet, fable) or set CLAUDE_CODE_ENABLE_EXPERIMENTAL_ADVISOR_TOOL=1.
+[claude-code:unrecognized_model] {"model":"qwen3.8-t02","query_source":"generate_session_title"}

@@ -1,0 +1,13 @@
+batch: pi-high-v1v2
+==> pi / qwen / v2-solar / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+
+batch pi-high-v1v2 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+batch: sampling-v1
+==> pi / qwen3.8-t02 / v1-polygon / run 1
+    pass=1  turns=19  wall=1068s  cost=0
+==> pi / qwen3.8-pp15 / v1-polygon / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+==> pi / qwen3-coder-t02 / v1-polygon / run 1

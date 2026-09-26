@@ -1,0 +1,17 @@
+[guard] 2026-09-26T14:54:30+01:00 disponivel=113GiB carregados=[]
+batch: cc-lean-t02-k3
+claude-code --effort medium
+claude-code --tools Read,Write,Edit,Bash,Glob,Grep
+claude-code --system-prompt de /home/carlos-andr-ferreira/viriato-bench/harness/claude-code-pi-system-prompt.txt
+==> claude-code / qwen3.8-t02 / v1-polygon / run 1
+    pass=1  turns=10  wall=1757s  cost=0
+==> claude-code / qwen3.8-t02 / v1-polygon / run 2
+    pass=1  turns=3  wall=691s  cost=0
+==> claude-code / qwen3.8-t02 / v1-polygon / run 3
+    pass=1  turns=3  wall=741s  cost=0
+
+batch cc-lean-t02-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-26T15:47:44+01:00 disponivel=113GiB carregados=[]
+FILA 15 COMPLETA

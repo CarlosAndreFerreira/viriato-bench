@@ -1,0 +1,9 @@
+[guard] 2026-09-23T23:07:18+01:00 disponivel=116GiB
+batch: prime-t02-v1
+==> prime-agent / qwen3.8-t02 / v1-polygon / run 1
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3001s
+
+batch prime-t02-v1 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+FILA 5 COMPLETA

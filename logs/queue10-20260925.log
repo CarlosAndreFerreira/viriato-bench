@@ -1,0 +1,22 @@
+[fila10] 2026-09-25T15:12:12+01:00 fila 9 terminou, a arrancar
+[guard] 2026-09-25T15:12:12+01:00 disponivel=115GiB carregados=[]
+batch: pi-t02-v3a1-k3
+==> pi / qwen3.8-t02 / a1-bugfix / run 1
+    pass=1  turns=5  wall=121s  cost=0
+==> pi / qwen3.8-t02 / a1-bugfix / run 2
+    pass=1  turns=8  wall=123s  cost=0
+==> pi / qwen3.8-t02 / a1-bugfix / run 3
+    pass=1  turns=7  wall=91s  cost=0
+==> pi / qwen3.8-t02 / v3-viriato / run 1
+    pass=1  turns=13  wall=1718s  cost=0
+==> pi / qwen3.8-t02 / v3-viriato / run 2
+    pass=1  turns=16  wall=2843s  cost=0
+==> pi / qwen3.8-t02 / v3-viriato / run 3
+    !! TIMEOUT (3000s) - o agente nao respondeu a tempo, nao e o mesmo que 'respondeu errado'  wall=3000s
+
+batch pi-t02-v3a1-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+[guard] 2026-09-25T17:23:49+01:00 disponivel=79GiB carregados=[]
+FILA 10 COMPLETA
+Error: unknown flag: --noheading

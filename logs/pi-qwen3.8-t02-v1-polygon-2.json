@@ -1,0 +1,1 @@
+{"type": "result", "harness": "pi", "num_turns": 27, "duration_ms": 3000053, "total_cost_usd": 0.0, "is_error": true, "stop_reason": "toolUse", "error": null, "result": "All checks pass but it's 15\u00d7 slower than realtime \u2014 too slow for a test harness. Let me optimize the hot loop (precomputed edges per substep, flat arrays, early-exit tolerance):"}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "actionFusion": true,
+  "observationPack": true,
+  "evidencePreservingReducer": true,
+  "evidencePreservingReducerProvider": "ollama",
+  "evidencePreservingReducerModel": "qwen3.8-t02:latest",
+  "onlineContextCompact": true,
+  "cacheWriteReadRatio": 12.5
+}

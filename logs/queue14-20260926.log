@@ -1,0 +1,31 @@
+batch: claude-effmed-k3
+claude-code --effort medium
+==> claude-code / claude / a1-bugfix / run 1
+    pass=1  turns=8  wall=104s  cost=0.8930174999999999
+==> claude-code / claude / a1-bugfix / run 2
+    pass=1  turns=9  wall=136s  cost=1.0991309999999999
+==> claude-code / claude / a1-bugfix / run 3
+    pass=1  turns=9  wall=165s  cost=1.0266262499999999
+==> claude-code / claude / v1-polygon / run 1
+    pass=1  turns=17  wall=508s  cost=2.233603
+==> claude-code / claude / v1-polygon / run 2
+    pass=1  turns=16  wall=348s  cost=1.7192912499999997
+==> claude-code / claude / v1-polygon / run 3
+    pass=1  turns=13  wall=322s  cost=1.76223575
+==> claude-code / claude / v2-solar / run 1
+    pass=1  turns=6  wall=441s  cost=1.6550552500000002
+==> claude-code / claude / v2-solar / run 2
+    pass=1  turns=15  wall=435s  cost=2.152884
+==> claude-code / claude / v2-solar / run 3
+    pass=1  turns=6  wall=302s  cost=1.6273897499999999
+==> claude-code / claude / v3-viriato / run 1
+    pass=1  turns=5  wall=309s  cost=1.5511609999999998
+==> claude-code / claude / v3-viriato / run 2
+    pass=1  turns=8  wall=400s  cost=1.7955815
+==> claude-code / claude / v3-viriato / run 3
+    !! agente saiu com exit=1 (crash/auth/quota?) antes do verificador correr  wall=257s
+
+batch claude-effmed-k3 completo
+resultados crus -> /home/carlos-andr-ferreira/viriato-bench/results.csv
+agrega com: python3 score.py   (usa so o batch mais recente por omissao)
+FILA 14 COMPLETA
