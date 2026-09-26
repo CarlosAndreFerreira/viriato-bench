@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lusitano Arena · Multi-Model Interactive Explorer</title>
+<style>
+  :root {
+    --bg: #090b10;
+    --surface: #111420;
+    --surface-card: #161b2a;
+    --border: #232a3e;
+    --border-bright: #384260;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --cyan: #06b6d4;
+    --pass: #10b981;
+    --fail: #ef4444;
+    --warn: #f59e0b;
+    --purple: #a855f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.5;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    background: rgba(17, 20, 32, 0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 50;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 30%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .badge-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--border-bright);
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--primary-light);
+  }
+
+  .nav-tabs {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .nav-tab {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .nav-tab:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .nav-tab.active {
+    color: #fff;
+    background: var(--primary);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+  }
+
+  .top-links {
+    display: flex;
+    gap: 8px;
+  }
+
+  .pill-link {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .pill-link:hover {
+    color: #fff;
+    border-color: var(--primary-light);
+  }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .tab-pane {
+    display: none;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .tab-pane.active {
+    display: block;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+
+  .status-pass {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--pass);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .status-fail {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--fail);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .sim-container {
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    background: #000;
+    overflow: hidden;
+    height: 520px;
+    position: relative;
+  }
+
+  .sim-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  .sim-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  pre.code-view {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #e6edf3;
+    overflow-x: auto;
+    height: 480px;
+    white-space: pre;
+  }
+
+  .maze-canvas-wrap {
+    background: #0a0d14;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  canvas.maze-canvas {
+    display: block;
+    background: #0f1422;
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3px;
+    border-radius: 6px;
+  }
+
+  .btn-sub {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-sub.active {
+    background: var(--border-bright);
+    color: #fff;
+  }
+
+  .callout {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin-top: 14px;
+  }
+
+  .metric-box {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .metric-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.1;
+  }
+
+  .metric-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  table.arena-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin-top: 10px;
+  }
+
+  table.arena-table th, table.arena-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+
+  table.arena-table th {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  tr.highlight-row {
+    background: rgba(99, 102, 241, 0.07);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-title">Lusitano Arena</span>
+    <span class="badge-tag">AMD Strix Halo · 128 GB UMA</span>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="tab-overview">⚔️ Visão 360°</button>
+    <button class="nav-tab" data-tab="tab-a1">🐛 a1-bugfix</button>
+    <button class="nav-tab" data-tab="tab-v1">🌀 v1-polygon</button>
+    <button class="nav-tab" data-tab="tab-v2">🪐 v2-solar</button>
+    <button class="nav-tab" data-tab="tab-v3">🏰 v3-viriato</button>
+  </div>
+
+  <div class="top-links">
+    <a class="pill-link" href="../slides/presentation.html" target="_blank">📽 Slides de Palco</a>
+    <a class="pill-link" href="../dashboard/index.html" target="_blank">📊 Dashboard CSV</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- TAB 1: VISÃO 360° -->
+  <section class="tab-pane active" id="tab-overview">
+    <div style="margin-bottom: 18px;">
+      <h1 style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">O Grande Duelo: Frontier Cloud vs Modelos Locais</h1>
+      <p style="color: var(--muted); font-size: 14px;">Medição empírica, append-only e sem truques na mesma harness do Claude Code em AMD Ryzen AI MAX+ 395.</p>
+    </div>
+
+    <div class="grid-4" style="margin-bottom: 20px;">
+      <div class="metric-box">
+        <div class="metric-val" style="color: var(--pass);">4 / 4</div>
+        <div class="metric-sub">Tarefas Verificadas com Sucesso</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-val" style="color: var(--primary-light);">128 GB</div>
+        <div class="metric-sub">Memória Unificada (0 B Swap)</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-val" style="color: var(--warn);">$0.00</div>
+        <div class="metric-sub">Custo Marginal de Tokens Locais</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-val" style="color: var(--cyan);">~55 W</div>
+        <div class="metric-sub">Potência Medida em Carga Local</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-header">
+        <div class="card-title">Matriz Consolidada de Resultados (pass@1)</div>
+        <span class="badge-tag">Atualizado a 20 de Setembro de 2026</span>
+      </div>
+      <table class="arena-table">
+        <thead>
+          <tr>
+            <th>Tarefa</th>
+            <th>Competência</th>
+            <th>Claude Opus 5 (Cloud)</th>
+            <th>Qwen3.8-Flash-Next (177B Local)</th>
+            <th>Qwen3.8:latest (27B Q4 Local)</th>
+            <th>Destaque Técnico</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="highlight-row">
+            <td><strong>a1-bugfix</strong></td>
+            <td>Debugging agêntico de 2 camadas</td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (134s · $0.92)</span></td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (618s · 7 turnos · $0)</span></td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (571s · 12 turnos · $0)</span></td>
+            <td><strong>Flash-Next bateu Claude em economia de turnos (7 vs 10)!</strong></td>
+          </tr>
+          <tr>
+            <td><strong>v1-polygon</strong></td>
+            <td>Física de colisões com paredes móveis</td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (429s · $1.99)</span></td>
+            <td><span class="status-badge status-fail">TIMEOUT (3,000s · 8t TTFT)</span></td>
+            <td><span class="status-badge status-fail">TIMEOUT (3,000s · Loop)</span></td>
+            <td>Cloud necessária para síntese gráfica rápida sem TTFT local.</td>
+          </tr>
+          <tr>
+            <td><strong>v2-solar</strong></td>
+            <td>Astrofísica orbital de Kepler vs Visual</td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (458s · $2.77)</span></td>
+            <td><span class="status-badge status-fail">TIMEOUT (3,000s · Barreira HTTP 300s)</span></td>
+            <td><span class="status-badge status-fail">TIMEOUT (3,000s · Loop)</span></td>
+            <td>Descoberta da barreira dos 300 segundos da camada HTTP local.</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>v3-viriato</strong></td>
+            <td>Síntese algorítmica sob SRS rígido</td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (444s · $2.15)</span></td>
+            <td><span class="status-badge status-pass">PASS · 1.0 (~3,000s · Auto-TDD · $0)</span></td>
+            <td><span class="status-badge status-fail">TIMEOUT (3,001s · 32k th)</span></td>
+            <td><strong>Flash-Next criou os seus próprios testes e corrigiu o bug da borda!</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">O Paradoxo dos Tokens por Segundo</div>
+        <p style="font-size: 13px; color: var(--muted); margin: 8px 0 12px;">Na geração pura de código no motor Ollama, a APU debita taxas impressionantes:</p>
+        <ul style="font-size: 13px; color: #cbd5e1; padding-left: 18px; line-height: 1.8;">
+          <li><strong>Qwen 27B:</strong> até <strong>24.1 tokens/segundo</strong> em geração pura.</li>
+          <li><strong>Qwen Flash-Next 177B MoE:</strong> <strong>16.8 – 17.0 tokens/segundo</strong> a inferir 94 GB de pesos!</li>
+          <li><strong>Por que a sessão demora mais?</strong> Porque reingerir 25.000 tokens de prompt acumulado no Ollama demora ~100s/turno (TTFT). O gargalo local é a reingestão de contexto, não a geração!</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Retorno do Investimento (ROI) em Hardware</div>
+        <p style="font-size: 13px; color: var(--muted); margin: 8px 0 12px;">Comparação de custos reais para equipas de desenvolvimento:</p>
+        <ul style="font-size: 13px; color: #cbd5e1; padding-left: 18px; line-height: 1.8;">
+          <li><strong>100 tarefas agênticas/dia na Cloud (Opus):</strong> ~$215 por dia → <strong>~$4.500 / mês</strong>.</li>
+          <li><strong>Workstation 128 GB UMA local:</strong> ~55W potência média → <strong>~3€ / mês em eletricidade</strong>.</li>
+          <li><strong>Payback:</strong> O hardware de 1.800€ amortiza-se em <strong>menos de 3 semanas</strong> para tarefas de CI e debugging.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: A1-BUGFIX -->
+  <section class="tab-pane" id="tab-a1">
+    <div style="margin-bottom: 16px;">
+      <h2 style="font-size: 20px; font-weight: 800;">a1-bugfix · Arena de Debugging Agêntico</h2>
+      <p style="color: var(--muted); font-size: 13px;">O desafio de 2 camadas: eliminar o ValueError em meses curtos (Camada 1) e corrigir a deriva de cálculo cumulativo (Camada 2).</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Código da Solução do Agente</div>
+          <div class="btn-group" id="a1-code-btns">
+            <button class="btn-sub active" data-src="flash">Flash-Next (7t)</button>
+            <button class="btn-sub" data-src="qwen">Qwen 27B (12t)</button>
+            <button class="btn-sub" data-src="sonnet">Sonnet 4.6 (26s)</button>
+            <button class="btn-sub" data-src="orig">Original (Buggy)</button>
+          </div>
+        </div>
+        <pre class="code-view" id="a1-code-display"></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Análise de Eficiência e Telemetria</div>
+        <table class="arena-table" style="margin-top: 10px;">
+          <thead>
+            <tr>
+              <th>Modelo</th>
+              <th>Turnos</th>
+              <th>Tempo Real</th>
+              <th>Tokens Gastos</th>
+              <th>Custo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight-row">
+              <td><strong>Flash-Next (177B)</strong></td>
+              <td><strong style="color:var(--pass);">7 turnos</strong></td>
+              <td>618s (~10m)</td>
+              <td><strong>1,582 tokens</strong></td>
+              <td><strong>$0.00</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Claude Sonnet 4.6</strong></td>
+              <td>8 turnos</td>
+              <td><strong>26s</strong></td>
+              <td>1,815 tokens</td>
+              <td>$0.28</td>
+            </tr>
+            <tr>
+              <td><strong>Claude Opus 4.8</strong></td>
+              <td>10 turnos</td>
+              <td>134s</td>
+              <td>3,789 tokens</td>
+              <td>$0.92</td>
+            </tr>
+            <tr>
+              <td><strong>Qwen3.8 (27B)</strong></td>
+              <td>12 turnos</td>
+              <td>571s (~9.5m)</td>
+              <td>3,635 tokens</td>
+              <td><strong>$0.00</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Claude Haiku 4.5</strong></td>
+              <td>13 turnos</td>
+              <td>37s</td>
+              <td>4,345 tokens</td>
+              <td>$0.14</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout" style="margin-top: 20px;">
+          <strong>Destaque para o Palco:</strong> O Flash-Next 177B precisou de <strong>quase 3× menos tokens</strong> que o Haiku (1.582 vs 4.345) e menos turnos que o próprio Claude Opus. Densidade de raciocínio supera velocidade bruta de geração!
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: V1-POLYGON -->
+  <section class="tab-pane" id="tab-v1">
+    <div style="margin-bottom: 16px;">
+      <h2 style="font-size: 20px; font-weight: 800;">v1-polygon · Física e Colisão com Paredes Móveis</h2>
+      <p style="color: var(--muted); font-size: 13px;">13 bolas numeradas dentro de um nonágono a rodar 360° em 7s com impulso tangencial.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Solução Claude Opus 5 (Passou com 1.0)</div>
+          <span class="status-badge status-pass">PASS · Playwright</span>
+        </div>
+        <div class="sim-container">
+          <iframe id="iframe-v1-claude" src="../runs/claude-code-claude-v1-polygon-1/index.html"></iframe>
+        </div>
+        <div class="sim-controls">
+          <span>Nonágono: 9 lados · Período: 7s · 13 bolas</span>
+          <button class="btn-sub" onclick="document.getElementById('iframe-v1-claude').src += ''">🔄 Reiniciar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Implementação Canónica de Referência</div>
+          <span class="status-badge status-pass">Referência Física</span>
+        </div>
+        <div class="sim-container">
+          <iframe id="iframe-v1-ref" src="../verify/reference_v1.html"></iframe>
+        </div>
+        <div class="sim-controls">
+          <span>Física Analítica Determinística</span>
+          <button class="btn-sub" onclick="document.getElementById('iframe-v1-ref').src += ''">🔄 Reiniciar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title">Diagnóstico Forense: Por Que Falharam os Modelos Locais no V1?</div>
+      <div class="grid-2" style="margin-top: 10px;">
+        <div style="font-size: 13.5px; line-height: 1.6; color: #cbd5e1;">
+          <strong style="color: var(--fail);">Qwen 27B:</strong> Bloqueou num loop de reflexão profunda fechado. Tentou derivar as matrizes de rotação e conservação de momento angular mentalmente e atingiu os 50 minutos num único turno.
+        </div>
+        <div style="font-size: 13.5px; line-height: 1.6; color: #cbd5e1;">
+          <strong style="color: var(--warn);">Flash-Next 177B:</strong> Executou 8 turnos de reconhecimento exaustivo (leu o Playwright, o harness e o código de referência). O modelo demorou ~100s por turno em TTFT e gerou 59.296 chars de raciocínio. Atingiu os 3.000s no turno 9 exatamente quando ia emitir a escrita do ficheiro!
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: V2-SOLAR -->
+  <section class="tab-pane" id="tab-v2">
+    <div style="margin-bottom: 16px;">
+      <h2 style="font-size: 20px; font-weight: 800;">v2-solar · Astrofísica Orbital vs Ilusão Visual</h2>
+      <p style="color: var(--muted); font-size: 13px;">O experimento da votação cega: 3.ª Lei de Kepler (T² / a³ = const) e transferência de Hohmann Terra-Marte.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Solução Claude Opus 5 (Física Correta)</div>
+          <span class="status-badge status-pass">PASS · 1.0 (Kepler)</span>
+        </div>
+        <div class="sim-container">
+          <iframe id="iframe-v2-claude" src="../runs/claude-code-claude-v2-solar-1/index.html"></iframe>
+        </div>
+        <div class="sim-controls">
+          <span>Órbitas circulares com raio em escala AU e Hohmann de 970 dias</span>
+          <button class="btn-sub" onclick="document.getElementById('iframe-v2-claude').src += ''">🔄 Reiniciar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Implementação de Referência</div>
+          <span class="status-badge status-pass">Referência</span>
+        </div>
+        <div class="sim-container">
+          <iframe id="iframe-v2-ref" src="../verify/reference_v2.html"></iframe>
+        </div>
+        <div class="sim-controls">
+          <span>Kepler + Ângulo de partida de 44° + Espera de 455 dias em Marte</span>
+          <button class="btn-sub" onclick="document.getElementById('iframe-v2-ref').src += ''">🔄 Reiniciar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title">Descoberta de Engenharia: A Barreira dos 300 Segundos na Camada HTTP Local</div>
+      <p style="font-size: 13.5px; color: #cbd5e1; margin-top: 8px; line-height: 1.6;">
+        Na execução do Flash-Next no V2, os logs do Ollama provam que o modelo gerou a <strong>17.02 tokens/s</strong> e produziu mais de <strong>5.053 tokens de raciocínio num único turno</strong>. No entanto, 5.000 tokens a 17 tok/s mais a ingestão de contexto demoram cerca de 5 minutos, colidindo com o limite de <strong>300 segundos da ligação HTTP</strong> do Claude Code CLI (erro HTTP 500). Isso forçou o cliente a reiniciar a tentativa 3 vezes em loop até esgotar o benchmark!
+      </p>
+    </div>
+  </section>
+
+  <!-- TAB 5: V3-VIRIATO -->
+  <section class="tab-pane" id="tab-v3">
+    <div style="margin-bottom: 16px;">
+      <h2 style="font-size: 20px; font-weight: 800;">v3-viriato · Síntese Algorítmica de Labirintos sob SRS</h2>
+      <p style="color: var(--muted); font-size: 13px;">Grelha 36×28, simetria horizontal estrita, Castrum central 6×4, 0 becos sem saída, verificado em 4 seeds.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Visualizador Gráfico do Labirinto Gerado</div>
+          <div style="display: flex; gap: 6px;">
+            <div class="btn-group" id="v3-model-btns">
+              <button class="btn-sub active" data-model="flash_next">Flash-Next 177B (PASS)</button>
+              <button class="btn-sub" data-model="claude_opus">Claude Opus 5 (PASS)</button>
+              <button class="btn-sub" data-model="reference">Referência</button>
+            </div>
+            <div class="btn-group" id="v3-seed-btns">
+              <button class="btn-sub active" data-seed="1">Seed 1</button>
+              <button class="btn-sub" data-seed="7">Seed 7</button>
+              <button class="btn-sub" data-seed="42">Seed 42</button>
+              <button class="btn-sub" data-seed="1234">Seed 1234</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="maze-canvas-wrap">
+          <canvas class="maze-canvas" id="mazeCanvas" width="448" height="576"></canvas>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 8px;">
+          <span>⬛ Castrum Central 6×4 (Dourado)</span>
+          <span>🟦 Túnel Lateral Wrap-Around (Ciano)</span>
+          <span>⬜ Paredes Simétricas (Branco/Cinza)</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">A Proeza do Auto-TDD do Flash-Next</div>
+          <div class="btn-group" id="v3-code-btns">
+            <button class="btn-sub active" data-v3src="check">check_maze.py (Auto-TDD)</button>
+            <button class="btn-sub" data-v3src="flash">maze.py (Flash-Next)</button>
+            <button class="btn-sub" data-v3src="claude">maze.py (Claude Opus)</button>
+          </div>
+        </div>
+        <pre class="code-view" id="v3-code-display"></pre>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top: 16px;">
+      <strong>O Veredito do V3:</strong> O Claude Opus 5 resolveu o problema em 10 turnos e 7.4 minutos com custo de $2.15 USD. O Flash-Next 177B MoE local alcançou <strong>exatamente o mesmo 100% de sucesso nas 4 seeds</strong> com custo zero de tokens, demonstrando capacidade de auto-validação e reparação de código.
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Tabs Navigation
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panes = document.querySelectorAll('.tab-pane');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      panes.forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+      if (tab.dataset.tab === 'tab-v3') {
+        renderMaze();
+      }
+    });
+  });
+
+  // A1 Code Snippets Data
+  const A1_CODES = {
+    flash: "\"\"\"Agendamento de tarefas recorrentes.\n\nUsado pelo Viriato's Maze para agendar torneios mensais e semanais.\n\"\"\"\nfrom __future__ import annotations\n\nimport calendar\nfrom dataclasses import dataclass\nfrom datetime import date, timedelta\n\n\n@dataclass(frozen=True)\nclass Recurrence:\n    start: date\n    kind: str          # \"daily\" | \"weekly\" | \"monthly\"\n    interval: int = 1\n\n\ndef add_months(d: date, months: int) -> date:\n    \"\"\"Avanca `months` meses, mantendo o dia do mes sempre que possivel.\n\n    Quando o mes de destino nao tem esse dia (ex: 31 de janeiro + 1 mes),\n    o resultado deve ser o ultimo dia do mes de destino.\n    \"\"\"\n    total = (d.year * 12 + (d.month - 1)) + months\n    year, month = divmod(total, 12)\n    month += 1\n    day = min(d.day, calendar.monthrange(year, month)[1])\n    return date(year, month, day)\n\n\ndef occurrences(rec: Recurrence, count: int) -> list[date]:\n    \"\"\"Devolve as primeiras `count` ocorrencias, incluindo a data de inicio.\"\"\"\n    if count <= 0:\n        return []\n    if rec.interval < 1:\n        raise ValueError(\"interval tem de ser >= 1\")\n\n    out = [rec.start]\n    while len(out) < count:\n        last = out[-1]\n        if rec.kind == \"daily\":\n            out.append(last + timedelta(days=rec.interval))\n        elif rec.kind == \"weekly\":\n            out.append(last + timedelta(weeks=rec.interval))\n        elif rec.kind == \"monthly\":\n            # Conta a partir do inicio, nao da ultima ocorrencia, para que\n            # um mes truncado (ex: fev) nao desloque os meses seguintes.\n            out.append(add_months(rec.start, rec.interval * len(out)))\n        else:\n            raise ValueError(f\"kind desconhecido: {rec.kind}\")\n    return out\n\n\ndef business_days_between(a: date, b: date) -> int:\n    \"\"\"Numero de dias uteis (seg-sex) no intervalo [a, b), a < b.\"\"\"\n    if b <= a:\n        return 0\n    days = 0\n    cur = a\n    while cur < b:\n        if cur.weekday() < 5:\n            days += 1\n        cur += timedelta(days=1)\n    return days\n\n\nif __name__ == \"__main__\":\n    r = Recurrence(date(2026, 1, 31), \"monthly\")\n    for d in occurrences(r, 5):\n        print(d, calendar.day_abbr[d.weekday()])\n",
+    qwen: "\"\"\"Agendamento de tarefas recorrentes.\n\nUsado pelo Viriato's Maze para agendar torneios mensais e semanais.\n\"\"\"\nfrom __future__ import annotations\n\nimport calendar\nfrom dataclasses import dataclass\nfrom datetime import date, timedelta\n\n\n@dataclass(frozen=True)\nclass Recurrence:\n    start: date\n    kind: str          # \"daily\" | \"weekly\" | \"monthly\"\n    interval: int = 1\n\n\ndef add_months(d: date, months: int) -> date:\n    \"\"\"Avanca `months` meses, mantendo o dia do mes sempre que possivel.\n\n    Quando o mes de destino nao tem esse dia (ex: 31 de janeiro + 1 mes),\n    o resultado deve ser o ultimo dia do mes de destino.\n    \"\"\"\n    total = (d.year * 12 + (d.month - 1)) + months\n    year, month = divmod(total, 12)\n    month += 1\n    day = min(d.day, calendar.monthrange(year, month)[1])\n    return date(year, month, day)\n\n\ndef occurrences(rec: Recurrence, count: int) -> list[date]:\n    \"\"\"Devolve as primeiras `count` ocorrencias, incluindo a data de inicio.\"\"\"\n    if count <= 0:\n        return []\n    if rec.interval < 1:\n        raise ValueError(\"interval tem de ser >= 1\")\n\n    out = [rec.start]\n    while len(out) < count:\n        last = out[-1]\n        if rec.kind == \"daily\":\n            out.append(last + timedelta(days=rec.interval))\n        elif rec.kind == \"weekly\":\n            out.append(last + timedelta(weeks=rec.interval))\n        elif rec.kind == \"monthly\":\n            # Sempre a partir da data de inicio, para evitar derivas\n            # (ex: 31-Jan -> 28-Fev -> 31-Mar, nao 28-Mar).\n            out.append(add_months(rec.start, len(out) * rec.interval))\n        else:\n            raise ValueError(f\"kind desconhecido: {rec.kind}\")\n    return out\n\n\ndef business_days_between(a: date, b: date) -> int:\n    \"\"\"Numero de dias uteis (seg-sex) no intervalo [a, b), a < b.\"\"\"\n    if b <= a:\n        return 0\n    days = 0\n    cur = a\n    while cur < b:\n        if cur.weekday() < 5:\n            days += 1\n        cur += timedelta(days=1)\n    return days\n\n\nif __name__ == \"__main__\":\n    r = Recurrence(date(2026, 1, 31), \"monthly\")\n    for d in occurrences(r, 5):\n        print(d, calendar.day_abbr[d.weekday()])\n",
+    sonnet: "\"\"\"Agendamento de tarefas recorrentes.\n\nUsado pelo Viriato's Maze para agendar torneios mensais e semanais.\n\"\"\"\nfrom __future__ import annotations\n\nimport calendar\nfrom dataclasses import dataclass\nfrom datetime import date, timedelta\n\n\n@dataclass(frozen=True)\nclass Recurrence:\n    start: date\n    kind: str          # \"daily\" | \"weekly\" | \"monthly\"\n    interval: int = 1\n\n\ndef add_months(d: date, months: int) -> date:\n    \"\"\"Avanca `months` meses, mantendo o dia do mes sempre que possivel.\n\n    Quando o mes de destino nao tem esse dia (ex: 31 de janeiro + 1 mes),\n    o resultado deve ser o ultimo dia do mes de destino.\n    \"\"\"\n    total = (d.year * 12 + (d.month - 1)) + months\n    year, month = divmod(total, 12)\n    month += 1\n    day = min(d.day, calendar.monthrange(year, month)[1])\n    return date(year, month, day)\n\n\ndef occurrences(rec: Recurrence, count: int) -> list[date]:\n    \"\"\"Devolve as primeiras `count` ocorrencias, incluindo a data de inicio.\"\"\"\n    if count <= 0:\n        return []\n    if rec.interval < 1:\n        raise ValueError(\"interval tem de ser >= 1\")\n\n    out = [rec.start]\n    while len(out) < count:\n        last = out[-1]\n        if rec.kind == \"daily\":\n            out.append(last + timedelta(days=rec.interval))\n        elif rec.kind == \"weekly\":\n            out.append(last + timedelta(weeks=rec.interval))\n        elif rec.kind == \"monthly\":\n            # Always advance from start to avoid day drift through short months\n            n = len(out)\n            out.append(add_months(rec.start, rec.interval * n))\n        else:\n            raise ValueError(f\"kind desconhecido: {rec.kind}\")\n    return out\n\n\ndef business_days_between(a: date, b: date) -> int:\n    \"\"\"Numero de dias uteis (seg-sex) no intervalo [a, b), a < b.\"\"\"\n    if b <= a:\n        return 0\n    days = 0\n    cur = a\n    while cur < b:\n        if cur.weekday() < 5:\n            days += 1\n        cur += timedelta(days=1)\n    return days\n\n\nif __name__ == \"__main__\":\n    r = Recurrence(date(2026, 1, 31), \"monthly\")\n    for d in occurrences(r, 5):\n        print(d, calendar.day_abbr[d.weekday()])\n",
+    orig: "\"\"\"Agendamento de tarefas recorrentes.\n\nUsado pelo Viriato's Maze para agendar torneios mensais e semanais.\n\"\"\"\nfrom __future__ import annotations\n\nimport calendar\nfrom dataclasses import dataclass\nfrom datetime import date, timedelta\n\n\n@dataclass(frozen=True)\nclass Recurrence:\n    start: date\n    kind: str          # \"daily\" | \"weekly\" | \"monthly\"\n    interval: int = 1\n\n\ndef add_months(d: date, months: int) -> date:\n    \"\"\"Avanca `months` meses, mantendo o dia do mes sempre que possivel.\n\n    Quando o mes de destino nao tem esse dia (ex: 31 de janeiro + 1 mes),\n    o resultado deve ser o ultimo dia do mes de destino.\n    \"\"\"\n    total = (d.year * 12 + (d.month - 1)) + months\n    year, month = divmod(total, 12)\n    month += 1\n    return date(year, month, d.day)\n\n\ndef occurrences(rec: Recurrence, count: int) -> list[date]:\n    \"\"\"Devolve as primeiras `count` ocorrencias, incluindo a data de inicio.\"\"\"\n    if count <= 0:\n        return []\n    if rec.interval < 1:\n        raise ValueError(\"interval tem de ser >= 1\")\n\n    out = [rec.start]\n    while len(out) < count:\n        last = out[-1]\n        if rec.kind == \"daily\":\n            out.append(last + timedelta(days=rec.interval))\n        elif rec.kind == \"weekly\":\n            out.append(last + timedelta(weeks=rec.interval))\n        elif rec.kind == \"monthly\":\n            out.append(add_months(last, rec.interval))\n        else:\n            raise ValueError(f\"kind desconhecido: {rec.kind}\")\n    return out\n\n\ndef business_days_between(a: date, b: date) -> int:\n    \"\"\"Numero de dias uteis (seg-sex) no intervalo [a, b), a < b.\"\"\"\n    if b <= a:\n        return 0\n    days = 0\n    cur = a\n    while cur < b:\n        if cur.weekday() < 5:\n            days += 1\n        cur += timedelta(days=1)\n    return days\n\n\nif __name__ == \"__main__\":\n    r = Recurrence(date(2026, 1, 31), \"monthly\")\n    for d in occurrences(r, 5):\n        print(d, calendar.day_abbr[d.weekday()])\n"
+  };
+
+  const a1Display = document.getElementById('a1-code-display');
+  const a1Btns = document.querySelectorAll('#a1-code-btns .btn-sub');
+
+  function updateA1Code(key) {
+    a1Display.textContent = A1_CODES[key] || '';
+  }
+  updateA1Code('flash');
+
+  a1Btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      a1Btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateA1Code(btn.dataset.src);
+    });
+  });
+
+  // V3 Maze Data
+  const MAZE_DATA = {"flash_next": {"1": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "7": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "42": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "1234": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]}, "claude_opus": {"1": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "7": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "42": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1], [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1], [1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1], [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1], [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "1234": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]}, "reference": {"1": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "7": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "42": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], "1234": [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]}};
+
+  let currentMazeModel = 'flash_next';
+  let currentMazeSeed = '1';
+
+  const v3ModelBtns = document.querySelectorAll('#v3-model-btns .btn-sub');
+  const v3SeedBtns = document.querySelectorAll('#v3-seed-btns .btn-sub');
+  const canvas = document.getElementById('mazeCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function renderMaze() {
+    const grid = MAZE_DATA[currentMazeModel]?.[currentMazeSeed];
+    if (!grid) return;
+
+    const rows = grid.length;
+    const cols = grid[0].length;
+    const cellW = canvas.width / cols;
+    const cellH = canvas.height / rows;
+
+    ctx.fillStyle = '#0f1422';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const val = grid[r][c];
+        const isCastrum = (r >= 15 && r <= 18 && c >= 11 && c <= 16);
+        const isTunnel = (c === 0 || c === 27) && val === 0;
+
+        if (isCastrum) {
+          ctx.fillStyle = '#f59e0b'; // Amber Gold for Castrum
+          ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+        } else if (isTunnel) {
+          ctx.fillStyle = '#06b6d4'; // Cyan for tunnel
+          ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+        } else if (val === 1) {
+          ctx.fillStyle = '#334155'; // Slate wall
+          ctx.fillRect(c * cellW, r * cellH, cellW - 0.5, cellH - 0.5);
+        } else {
+          ctx.fillStyle = '#020617'; // Floor path
+          ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+        }
+      }}
+
+    // Symmetry axis line
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, 0);
+    ctx.lineTo(canvas.width / 2, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  v3ModelBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      v3ModelBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMazeModel = btn.dataset.model;
+      renderMaze();
+    });
+  });
+
+  v3SeedBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      v3SeedBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMazeSeed = btn.dataset.seed;
+      renderMaze();
+    });
+  });
+
+  // V3 Code view
+  const V3_CODES = {
+    check: "\"\"\"Verifica as 9 restricoes do Viriato's Maze para muitas seeds.\"\"\"\nfrom collections import deque\n\nfrom maze import ROWS, COLS, CASTRUM_R0, CASTRUM_R1, CASTRUM_C0, CASTRUM_C1, generate_maze, render\n\n\ndef neighbors(grid, r, c, wrap_row=None):\n    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n        rr, cc = r + dr, c + dc\n        if wrap_row is not None and r == wrap_row and not (0 <= cc < COLS):\n            cc %= COLS  # wrap horizontal apenas na linha do tunel\n        if 0 <= rr < ROWS and 0 <= cc < COLS and grid[rr][cc] == 0:\n            yield rr, cc\n\n\ndef check(seed):\n    g = generate_maze(seed)\n    errs = []\n\n    # 1. Dimensoes\n    if len(g) != 36 or any(len(row) != 28 for row in g):\n        errs.append(\"dimensoes\")\n\n    # linha do tunel (para o wrap)\n    tunnel_rows = [r for r in range(ROWS) if g[r][0] == 0 and g[r][COLS - 1] == 0]\n\n    # 2. Bordadura: tem de ser parede, exceto a linha do tunel\n    for c in range(COLS):\n        if g[0][c] == 0 or g[35][c] == 0:\n            errs.append(f\"bordadura linha 0/35 na col {c}\")\n    for r in range(ROWS):\n        if g[r][0] == 0 and r not in tunnel_rows:\n            errs.append(f\"bordadura col 0 na linha {r}\")\n        if g[r][COLS - 1] == 0 and r not in tunnel_rows:\n            errs.append(f\"bordadura col 27 na linha {r}\")\n\n    # 3. Simetria horizontal\n    for r in range(ROWS):\n        for c in range(COLS):\n            if g[r][c] != g[r][COLS - 1 - c]:\n                errs.append(f\"simetria em ({r},{c})\")\n                break\n\n    # 4. Sem dead ends (com wrap na linha do tunel)\n    assert len(tunnel_rows) <= 1\n    wr = tunnel_rows[0] if tunnel_rows else None\n    for r in range(ROWS):\n        for c in range(COLS):\n            if g[r][c] == 0 and len(list(neighbors(g, r, c, wr))) < 2:\n                errs.append(f\"dead end em ({r},{c})\")\n\n    # 5. Componente conexo unico (com wrap na linha do tunel)\n    cells = [(r, c) for r in range(ROWS) for c in range(COLS) if g[r][c] == 0]\n    seen = {cells[0]}\n    q = deque([cells[0]])\n    while q:\n        for nb in neighbors(g, *q.popleft(), wr):\n            if nb not in seen:\n                seen.add(nb)\n                q.append(nb)\n    if len(seen) != len(cells):\n        errs.append(f\"desconexo ({len(seen)}/{len(cells)})\")\n\n    # 6. Castrum\n    for r in range(CASTRUM_R0, CASTRUM_R1 + 1):\n        for c in range(CASTRUM_C0, CASTRUM_C1 + 1):\n            if g[r][c] != 1:\n                errs.append(\"castrum nao solido\")\n    ring = ([(CASTRUM_R0 - 1, c) for c in range(CASTRUM_C0, CASTRUM_C1 + 1)]\n            + [(CASTRUM_R1 + 1, c) for c in range(CASTRUM_C0, CASTRUM_C1 + 1)]\n            + [(r, CASTRUM_C0 - 1) for r in range(CASTRUM_R0, CASTRUM_R1 + 1)]\n            + [(r, CASTRUM_C1 + 1) for r in range(CASTRUM_R0, CASTRUM_R1 + 1)])\n    if any(g[r][c] != 0 for r, c in ring):\n        errs.append(\"castrum nao rodeado de corredor\")\n\n    # 7. Tuneis laterais: exatamente uma linha, nao atravessa o castrum\n    if len(tunnel_rows) != 1:\n        errs.append(f\"linhas de tunel = {tunnel_rows}\")\n    elif CASTRUM_R0 <= tunnel_rows[0] <= CASTRUM_R1:\n        errs.append(\"tunel atravessa o castrum\")\n    # nenhuma outra linha tem coluna 0 OU 27 em corredor\n    for r in range(ROWS):\n        if r != tunnel_rows[0] and (g[r][0] == 0 or g[r][COLS - 1] == 0):\n            errs.append(f\"abertura extra na bordadura, linha {r}\")\n\n    # 8. Densidade\n    d = len(cells) / (ROWS * COLS)\n    if not (0.35 <= d <= 0.60):\n        errs.append(f\"densidade {d:.2%}\")\n\n    return errs, d\n\n\ndef main():\n    n = 500\n    densities = []\n    grids = {}\n    for seed in range(n):\n        errs, d = check(seed)\n        if errs:\n            print(f\"seed {seed}: {errs}\")\n            print(render(generate_maze(seed)))\n            return\n        densities.append(d)\n        grids.setdefault(tuple(map(tuple, generate_maze(seed))), []).append(seed)\n\n    # 9. Determinismo + unicidade entre seeds\n    for seed in range(20):\n        assert generate_maze(seed) == generate_maze(seed), f\"seed {seed} nao deterministica\"\n    dupes = {k: v for k, v in grids.items() if len(v) > 1}\n    print(f\"{n} seeds OK; densidade min/med/max = \"\n          f\"{min(densities):.1%}/{sum(densities)/len(densities):.1%}/{max(densities):.1%}\")\n    print(f\"grelhas identicas entre seeds diferentes: {len(dupes)}\")\n    assert not dupes\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    flash: "\"\"\"Gerador procedural de labirintos do jogo \"Viriato's Maze\".\n\nO labirinto e gerado por construcao, o que garante por construcao as\nrestricoes do jogo:\n\n* malha de corredores horizontais completos nas linhas impares (1..33),\n  o que da a cada celula pelo menos duas saidas (este e oeste);\n* ligacoes verticais aleatorias (em pares espelhados) entre linhas\n  impares consecutivas, garantindo pelo menos uma ligacao por intervalo;\n* castrum central solido (linhas 15-18, colunas 11-16) rodeado de\n  corredor em todos os lados;\n* um unico tunel lateral de wrap-around, numa linha impar fora do castrum.\n\nNota sobre o tunel: as celulas (t, 0) e (t, 27) so tem duas saidas se a\nvizinhan\u00e7a de 4 for interpretada com wrap horizontal nessa linha (oeste\nde (t, 0) he (t, 27)), que he a semantica do jogo. Sem wrap, as\nrestricoes 3 (simetria), 4 (sem becos sem saida) e 7 (exatamente uma\nlinha de tunel) sao mutuamente insativeis: dar uma segunda saida a\n(t, 0) obrigaria a abrir a coluna 0 noutra linha, e a simetria abriria\ntambem a coluna 27 nessa linha, violando a unicidade do tunel.\n\"\"\"\n\nimport random\n\nROWS = 36\nCOLS = 28\n\n# Castrum central: bloco solido de parede nas linhas 15-18, colunas 11-16.\nCASTRUM_R0, CASTRUM_R1 = 15, 18\nCASTRUM_C0, CASTRUM_C1 = 11, 16\n\n\ndef _mirror(c: int) -> int:\n    \"\"\"Coluna espelhada no eixo vertical (grid[r][c] == grid[r][27-c]).\"\"\"\n    return COLS - 1 - c\n\n\ndef generate_maze(seed: int) -> list[list[int]]:\n    \"\"\"Devolve uma grelha 36 linhas x 28 colunas.\n    0 = corredor (transit\u00e1vel), 1 = parede.\n    \"\"\"\n    rng = random.Random(seed)\n    grid = [[1] * COLS for _ in range(ROWS)]\n\n    def carve(r: int, c: int) -> None:\n        \"\"\"Abre uma celula de corredor e o seu espelho.\"\"\"\n        grid[r][c] = 0\n        grid[r][_mirror(c)] = 0\n\n    # Linha do tunel lateral: linha impar (corredor completo), fora do castrum.\n    tunnel_row = rng.choice(\n        [r for r in range(1, ROWS - 1, 2)\n         if not (CASTRUM_R0 <= r <= CASTRUM_R1)]\n    )\n\n    # 1. Corredores horizontais completos nas linhas impares interiores.\n    for r in range(1, ROWS - 1, 2):\n        for c in range(1, COLS - 1):\n            grid[r][c] = 0\n\n    # 2. Ligacoes verticais entre linhas impares consecutivas, sempre em\n    #    pares espelhados {c, 27-c} na linha de parede par interm\u00e9dia.\n    pairs = [(c, _mirror(c)) for c in range(1, COLS // 2)]  # (1,26) ... (13,14)\n    for r in range(1, ROWS - 3, 2):  # linhas impares 1..31; parede em r+1 (2..32)\n        wr = r + 1\n        opts = [p for p in pairs\n                if not (CASTRUM_R0 <= wr <= CASTRUM_R1\n                        and CASTRUM_C0 <= p[0] <= CASTRUM_C1)]\n        if wr == CASTRUM_R0 - 1:\n            # Acima do castrum so ligam de facto as linhas 13/15 as\n            # colunas fora do anel superior (c <= 10).\n            opts = [p for p in opts if p[0] < CASTRUM_C0]\n        k = rng.randint(1, min(3, len(opts)))\n        for c, _ in rng.sample(opts, k):\n            carve(wr, c)\n\n    # 3. Castrum: retangulo solido de parede (6x4), centrado nas colunas\n    #    11-16, entre as linhas 15-18.\n    for r in range(CASTRUM_R0, CASTRUM_R1 + 1):\n        for c in range(CASTRUM_C0, CASTRUM_C1 + 1):\n            grid[r][c] = 1\n\n    # 4. Anel de corredor em torno do castrum (norte, sul, este, oeste).\n    for c in range(CASTRUM_C0, CASTRUM_C1 + 1):\n        grid[CASTRUM_R0 - 1][c] = 0\n        grid[CASTRUM_R1 + 1][c] = 0\n    for r in range(CASTRUM_R0, CASTRUM_R1 + 1):\n        grid[r][CASTRUM_C0 - 1] = 0\n        grid[r][_mirror(CASTRUM_C0 - 1)] = 0\n\n    # 5. C\u00e9lulas das pontas (coluna 1 e o espelho 26) precisam de uma\n    #    ligacao vertical (linhas de parede 2..32), senao ficam com saida unica.\n    for r in range(1, ROWS - 1, 2):\n        if grid[r - 1][1] and grid[r + 1][1]:\n            carve(rng.choice([x for x in (r - 1, r + 1) if 1 < x < ROWS - 2]), 1)\n\n    # 6. Tunel lateral de wrap-around esquerda-direita (uma unica linha).\n    grid[tunnel_row][0] = 0\n    grid[tunnel_row][_mirror(0)] = 0\n\n    return grid\n\n\ndef render(grid: list[list[int]]) -> str:\n    \"\"\"Devolve a grelha como texto ASCII: '#' parede, ' ' corredor.\"\"\"\n    return \"\\n\".join(\n        \"\".join(\"#\" if cell else \" \" for cell in row) for row in grid\n    )\n\n\nif __name__ == \"__main__\":\n    print(render(generate_maze(1)))\n",
+    claude: "\"\"\"Gerador procedural de labirintos para \"Viriato's Maze\".\n\nA grelha tem 36 linhas x 28 colunas, `0` = corredor e `1` = parede.\n\nIdeia da geracao\n----------------\nTodo o corredor e carvado como *anel* (o contorno de um rectangulo com pelo\nmenos 2x2 celulas) ou como a linha completa do tunel.  Num anel cada celula\ntem sempre 2 ou mais vizinhos do proprio anel, por isso a uniao de aneis tem\ngrau minimo 2 por construcao -- nao ha becos sem saida sem precisar de\nreparacoes a posteriori.  Cada anel novo e obrigado a partilhar pelo menos uma\ncelula com o corredor ja existente, o que mantem a componente conexa unica.\n\nTudo e gerado na metade esquerda (colunas 0..13) e espelhado para a direita,\ngarantindo `grid[r][c] == grid[r][27 - c]`.\n\nNota sobre o tunel: as bocas do tunel, `(t, 0)` e `(t, 27)`, so tem um vizinho\nde corredor *dentro* da grelha.  Isto e inevitavel: dar-lhes um segundo vizinho\nobrigaria a coluna 0 a ter corredor noutra linha e, por simetria, isso criaria\num segundo tunel, violando o requisito de existir exactamente um.  O segundo\nvizinho de cada boca e o outro lado do wrap-around (a oeste de `(t, 0)` esta\n`(t, 27)`), que e precisamente a ligacao que o tunel representa no jogo.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport random\n\nROWS = 36\nCOLS = 28\n\nPATH = 0\nWALL = 1\n\n# Castrum: bloco solido de parede, 6 colunas x 4 linhas, centrado.\nCASTRUM_R0, CASTRUM_R1 = 15, 18\nCASTRUM_C0, CASTRUM_C1 = 11, 16\n\n# Anel de corredor que rodeia o castrum em todos os lados.\n_CASTRUM_RING = (CASTRUM_R0 - 1, CASTRUM_R1 + 1, CASTRUM_C0 - 1, CASTRUM_C1 + 1)\n\n# Anel exterior, imediatamente dentro da bordadura.\n_PERIMETER_RING = (1, ROWS - 2, 1, COLS - 2)\n\nDENSITY_MIN = 0.35\nDENSITY_MAX = 0.60\n\n_TARGET_MIN = 400          # alvo de celulas de corredor (~40%)\n_TARGET_MAX = 500          # alvo de celulas de corredor (~50%)\n_PATH_CAP = 560            # ~55.6%, bem dentro do limite de 60%\n_MAX_RING_TRIES = 6000\n_MAX_ATTEMPTS = 64\n\n# Aneis que tocam ao mesmo tempo no perimetro e no anel do castrum, usados\n# para ligar as duas estruturas fixas.\n_CONNECTOR_RINGS = (\n    (1, 14, 1, 10),\n    (1, 14, 1, 13),\n    (1, 14, 4, 10),\n    (19, 34, 1, 10),\n    (19, 34, 1, 13),\n    (19, 34, 4, 10),\n    (14, 34, 1, 10),\n    (1, 19, 1, 10),\n)\n\n\ndef _blank_grid() -> list[list[int]]:\n    return [[WALL] * COLS for _ in range(ROWS)]\n\n\ndef _ring_cells(r0: int, r1: int, c0: int, c1: int) -> list[tuple[int, int]]:\n    \"\"\"Contorno do rectangulo [r0..r1] x [c0..c1] (r1 > r0 e c1 > c0).\"\"\"\n    cells = []\n    for c in range(c0, c1 + 1):\n        cells.append((r0, c))\n        cells.append((r1, c))\n    for r in range(r0 + 1, r1):\n        cells.append((r, c0))\n        cells.append((r, c1))\n    return cells\n\n\ndef _in_castrum(r: int, c: int) -> bool:\n    return CASTRUM_R0 <= r <= CASTRUM_R1 and CASTRUM_C0 <= c <= CASTRUM_C1\n\n\ndef _carve(grid: list[list[int]], cells) -> None:\n    \"\"\"Abre as celulas e as suas imagens espelhadas.\"\"\"\n    for r, c in cells:\n        grid[r][c] = PATH\n        grid[r][COLS - 1 - c] = PATH\n\n\ndef _new_path_cells(grid: list[list[int]], cells) -> int:\n    \"\"\"Quantas celulas de corredor seriam acrescentadas (com o espelho).\"\"\"\n    fresh = {(r, c) for r, c in cells if grid[r][c] == WALL}\n    fresh |= {(r, COLS - 1 - c) for r, c in fresh}\n    return len(fresh)\n\n\ndef _touches_path(grid: list[list[int]], cells) -> bool:\n    return any(grid[r][c] == PATH for r, c in cells)\n\n\ndef _count_path(grid: list[list[int]]) -> int:\n    return sum(row.count(PATH) for row in grid)\n\n\ndef _build(rng: random.Random) -> list[list[int]]:\n    grid = _blank_grid()\n\n    # 1. Anel exterior.\n    _carve(grid, _ring_cells(*_PERIMETER_RING))\n\n    # 2. Tunel lateral: uma linha completa, nunca a atravessar o castrum.\n    tunnel_rows = [r for r in range(2, ROWS - 2) if not (CASTRUM_R0 <= r <= CASTRUM_R1)]\n    tunnel = rng.choice(tunnel_rows)\n    _carve(grid, [(tunnel, c) for c in range(COLS)])\n\n    # 3. Anel a rodear o castrum, mais um ou dois aneis que o ligam ao resto.\n    _carve(grid, _ring_cells(*_CASTRUM_RING))\n    for ring in rng.sample(_CONNECTOR_RINGS, rng.randint(1, 2)):\n        _carve(grid, _ring_cells(*ring))\n\n    # 4. Aneis aleatorios na metade esquerda, sempre ligados ao que ja existe.\n    target = rng.randint(_TARGET_MIN, _TARGET_MAX)\n    count = _count_path(grid)\n    for _ in range(_MAX_RING_TRIES):\n        if count >= target:\n            break\n        r0 = rng.randint(1, ROWS - 4)\n        r1 = min(r0 + rng.randint(2, 9), ROWS - 2)\n        c0 = rng.randint(1, COLS // 2 - 3)\n        c1 = min(c0 + rng.randint(2, 7), COLS // 2 - 1)\n        if r1 - r0 < 2 or c1 - c0 < 2:\n            continue\n        cells = _ring_cells(r0, r1, c0, c1)\n        if any(_in_castrum(r, c) for r, c in cells):\n            continue\n        if not _touches_path(grid, cells):\n            continue\n        added = _new_path_cells(grid, cells)\n        if added == 0 or count + added > _PATH_CAP:\n            continue\n        _carve(grid, cells)\n        count += added\n\n    return grid\n\n\ndef check(grid) -> list[str]:\n    \"\"\"Devolve a lista de restricoes violadas (vazia se a grelha e valida).\"\"\"\n    problems: list[str] = []\n\n    # (1) Dimensoes.\n    if len(grid) != ROWS or any(len(row) != COLS for row in grid):\n        return [\"dimensoes: a grelha tem de ser %dx%d\" % (ROWS, COLS)]\n    if any(v not in (PATH, WALL) for row in grid for v in row):\n        problems.append(\"valores: apenas 0 e 1 sao permitidos\")\n\n    # (7) Tuneis laterais.\n    tunnel_rows = [r for r in range(ROWS) if grid[r][0] == PATH or grid[r][COLS - 1] == PATH]\n    if len(tunnel_rows) != 1:\n        problems.append(\"tunel: %d linhas com corredor na bordadura lateral\" % len(tunnel_rows))\n        tunnel = None\n    else:\n        tunnel = tunnel_rows[0]\n        if grid[tunnel][0] != PATH or grid[tunnel][COLS - 1] != PATH:\n            problems.append(\"tunel: as duas bocas tem de ser corredor\")\n        if CASTRUM_R0 <= tunnel <= CASTRUM_R1:\n            problems.append(\"tunel: a linha %d atravessa o castrum\" % tunnel)\n\n    # (2) Bordadura.\n    for c in range(COLS):\n        if grid[0][c] != WALL or grid[ROWS - 1][c] != WALL:\n            problems.append(\"bordadura: linha 0 / %d tem corredor\" % (ROWS - 1))\n            break\n    for r in range(ROWS):\n        if r == tunnel:\n            continue\n        if grid[r][0] != WALL or grid[r][COLS - 1] != WALL:\n            problems.append(\"bordadura: coluna 0 / %d tem corredor fora do tunel\" % (COLS - 1))\n            break\n\n    # (3) Simetria horizontal.\n    for r in range(ROWS):\n        if any(grid[r][c] != grid[r][COLS - 1 - c] for c in range(COLS)):\n            problems.append(\"simetria: linha %d nao e espelhada\" % r)\n            break\n\n    # (6) Castrum.\n    if any(grid[r][c] != WALL\n           for r in range(CASTRUM_R0, CASTRUM_R1 + 1)\n           for c in range(CASTRUM_C0, CASTRUM_C1 + 1)):\n        problems.append(\"castrum: o bloco central tem de ser todo parede\")\n    surround = _ring_cells(*_CASTRUM_RING)\n    if any(grid[r][c] != PATH for r, c in surround):\n        problems.append(\"castrum: tem de estar rodeado de corredor\")\n\n    paths = [(r, c) for r in range(ROWS) for c in range(COLS) if grid[r][c] == PATH]\n\n    # (4) Sem becos sem saida (as bocas do tunel ligam-se pelo wrap-around).\n    degree = {}\n    for r, c in paths:\n        deg = 0\n        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < ROWS and 0 <= nc < COLS and grid[nr][nc] == PATH:\n                deg += 1\n        degree[(r, c)] = deg\n    mouths = set()\n    if tunnel is not None:\n        mouths = {(tunnel, 0), (tunnel, COLS - 1)}\n    thin = {cell for cell, deg in degree.items() if deg < 2}\n    if thin != mouths:\n        problems.append(\"becos sem saida: %s\" % sorted(thin - mouths))\n\n    # (5) Componente conexa unica.\n    if paths:\n        start = paths[0]\n        seen = {start}\n        stack = [start]\n        while stack:\n            r, c = stack.pop()\n            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < ROWS and 0 <= nc < COLS and grid[nr][nc] == PATH:\n                    if (nr, nc) not in seen:\n                        seen.add((nr, nc))\n                        stack.append((nr, nc))\n        if len(seen) != len(paths):\n            problems.append(\"conectividade: %d de %d celulas alcancadas\"\n                            % (len(seen), len(paths)))\n    else:\n        problems.append(\"conectividade: nao ha corredores\")\n\n    # (8) Densidade.\n    density = len(paths) / float(ROWS * COLS)\n    if not (DENSITY_MIN <= density <= DENSITY_MAX):\n        problems.append(\"densidade: %.3f fora de [%.2f, %.2f]\"\n                        % (density, DENSITY_MIN, DENSITY_MAX))\n\n    return problems\n\n\ndef generate_maze(seed: int) -> list[list[int]]:\n    \"\"\"Devolve uma grelha 36 linhas x 28 colunas.\n\n    0 = corredor (transitavel), 1 = parede.\n\n    A mesma seed produz sempre exactamente a mesma grelha.\n    \"\"\"\n    seed = int(seed)\n    for attempt in range(_MAX_ATTEMPTS):\n        rng = random.Random(seed * 1000003 + attempt)\n        grid = _build(rng)\n        if not check(grid):\n            return grid\n    raise RuntimeError(\"nao foi possivel gerar um labirinto valido para a seed %d\" % seed)\n\n\ndef render(grid) -> str:\n    \"\"\"Devolve a grelha em ASCII: '#' para parede, ' ' para corredor.\"\"\"\n    return \"\\n\".join(\"\".join(\"#\" if cell == WALL else \" \" for cell in row) for row in grid)\n\n\nif __name__ == \"__main__\":\n    print(render(generate_maze(1)))\n"
+  };
+
+  const v3Display = document.getElementById('v3-code-display');
+  const v3Btns = document.querySelectorAll('#v3-code-btns .btn-sub');
+
+  function updateV3Code(key) {
+    v3Display.textContent = V3_CODES[key] || '';
+  }
+  updateV3Code('check');
+
+  v3Btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      v3Btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateV3Code(btn.dataset.v3src);
+    });
+  });
+
+  // Initial maze render
+  renderMaze();
+</script>
+</body>
+</html>
