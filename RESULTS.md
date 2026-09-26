@@ -379,6 +379,24 @@ pré-registado — **incluindo as do Claude**. No lado Claude isto significa mai
 raciocínio (e mais custo) do que o protocolo previa; no lado local, o efeito
 depende da forma como o Ollama traduz o campo, que não foi confirmada.
 
+**Grelha do Claude repetida com o esforço pré-registado** (batch
+`claude-effmed-k3`, 2026-09-26, `--effort medium`, `claude-opus-5`):
+
+| Tarefa | `high` (grelha original) | `medium` (pré-registado) |
+|---|---|---|
+| a1-bugfix | 3/3, 138 s, 4.12 $ | 3/3, 136 s, 3.02 $ |
+| v1-polygon | 3/3, 429 s, 6.15 $ | 3/3, 348 s, 5.72 $ |
+| v2-solar | 3/3, 458 s, 6.89 $ | 3/3, 435 s, 5.44 $ |
+| v3-viriato | 3/3, 486 s, 7.90 $ | **2/3**, 309 s, 4.56 $ |
+| **Total** | **12/12, 25.06 $** | **11/12, 18.72 $** |
+
+A falha a `medium` (v3, run 3) foi um erro de código, não de tempo: o
+`maze.py` usa uma constante que nunca define (`NameError: MAX_CORRIDOR`) nas 4
+seeds, e não expõe `render()`. A `medium` o Claude ficou 25% mais barato e
+ligeiramente mais rápido, com uma falha em 12. 11/12 contra 12/12 não é uma
+diferença significativa (p = 0.5), mas o "12/12" do slide foi medido a `high`
+e deve ser apresentado como tal.
+
 ### 6.6 Os resultados locais dependem do timeout escolhido
 
 Momento em que o ficheiro final foi escrito, nos passes limpos:
