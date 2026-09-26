@@ -476,6 +476,16 @@ frases do endpoint nativo; omiti-la não reproduz nenhuma.
 | pi, pi-sol, prime-agent | `/v1/chat/completions` (`harness/*/models.json`) | não (captura do PROTOCOL 2.2) | **não é 0.2**: é o default do `/v1`, igual ao do `qwen3.8` |
 | opencode (de origem) | `/v1/chat/completions` | não, mas envia `top_p: 1` | idem |
 
+Recapturado a 2026-09-26 com `verify/fake_openai_server.py`, com a config de
+`harness/<agente>` e as flags do `bench.sh`, pedindo explicitamente
+`--model qwen3.8-t02:latest`: o pi, o pi-sol e o prime-agent enviam só
+`model`, `messages`, `tools`, `max_completion_tokens`, `reasoning_effort`,
+`store` e `stream`/`stream_options`. **Nenhum envia `temperature`, `top_p` ou
+`top_k`**, e nenhum `models.json` define amostragem por modelo. Nas datas das
+runs o Ollama já era o 0.33.3 (binário de 2026-09-03; o journal de 21 a 26 de
+setembro só regista essa versão) e o pi e o prime-agent já estavam instalados
+na versão atual (2026-08-16 e 2026-08-12).
+
 **O que isto invalida:**
 
 1. **O §2 não mede a temperatura.** No pi, pi-sol e prime-agent, `qwen3.8` e
