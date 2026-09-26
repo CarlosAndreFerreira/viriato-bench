@@ -249,6 +249,32 @@ Primeiro turno do agente (duração da primeira resposta no Ollama):
   curtos). A diferença que sobra está no pedido em si: 89 KB e 26 ferramentas
   contra 10.6 KB e 7.
 
+**Teste do tamanho do pedido: claude-code "magro"** (batch `cc-lean-t02-k3`,
+2026-09-26). Igual ao anterior (`qwen3.8-t02`, `--effort medium`, sem pedidos
+secundários), mas com `--tools Read,Write,Edit,Bash,Glob,Grep` e
+`--system-prompt` com o prompt de sistema do pi, capturado
+(`harness/claude-code-pi-system-prompt.txt`, sem a linha da pasta de
+trabalho). O pedido baixou de 89 KB para **17.6 KB** (o do pi tem 10.6 KB);
+o primeiro prompt que chegou ao Ollama tinha **4428 tokens**, contra 17 835.
+
+| Run | Resultado | Primeiro turno |
+|---|---|---|
+| 1 | **limpo, 1757 s** | 13 min 42 s |
+| 2 | **limpo, 691 s** | 8 min 58 s |
+| 3 | **limpo, 741 s** | 9 min 38 s |
+
+- **3/3 limpos** — o mesmo nível do pi (2/3) e do pi-sol (3/3) com o mesmo
+  modelo. Contra as outras 9 runs do claude-code + `qwen3.8-t02` no v1 (1/9
+  limpos): **Fisher p = 0.0045**. Contra a melhor configuração anterior
+  (1/3): p = 0.2.
+- **O ciclo do agente do Claude Code não era o problema; o pedido era.** Com
+  as mesmas instruções e ferramentas equivalentes às do pi, o claude-code
+  resolve o v1 com o modelo local. O que o prejudicava era o pedido de origem:
+  prompt de sistema longo e 26 ferramentas.
+- O que este teste não separa: o efeito do prompt de sistema e o das
+  ferramentas (mudaram os dois juntos). O prompt usado diz "operating inside
+  pi" — é o texto do pi, sem adaptação.
+
 Por confirmar: qual dos timeouts do Claude Code corta (existem
 `CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`, `CLAUDE_STREAM_IDLE_TIMEOUT_MS`,
 `CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS` e `API_TIMEOUT_MS`), e se desligar os

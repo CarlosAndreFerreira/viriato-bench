@@ -47,6 +47,12 @@ CLAUDE_MODEL="${CLAUDE_MODEL:-}"       # fixa explicitamente, ex: claude-opus-5
 # nenhuma run o aplicou - ver RESULTS.md 6.5. Nome proprio do bench de
 # proposito: CLAUDE_EFFORT tambem e lido pelo Claude Code.
 CC_EFFORT="${CC_EFFORT:-}"
+# Para isolar o efeito do tamanho do pedido do claude-code (RESULTS.md 3.3):
+# CC_TOOLS restringe as ferramentas nativas (claude --tools, ex:
+# "Read,Write,Edit,Bash,Glob,Grep") e CC_SYSTEM_PROMPT_FILE substitui o prompt
+# de sistema (claude --system-prompt). Vazios = comportamento de origem.
+CC_TOOLS="${CC_TOOLS:-}"
+CC_SYSTEM_PROMPT_FILE="${CC_SYSTEM_PROMPT_FILE:-}"
 
 # Um "side" local por modelo a comparar. Cada um mapeia para uma tag do
 # Ollama; sobrepoe-se com a env var respetiva se quiseres testar outra tag.
@@ -78,6 +84,8 @@ LOG_ROOT="$LOGS_DIR/$BATCH_DIR"
 mkdir -p "$RUN_ROOT" "$LOG_ROOT"
 echo "batch: $BATCH_ID"
 [[ -n "$CC_EFFORT" && "$AGENT" == claude-code ]] && echo "claude-code --effort $CC_EFFORT"
+[[ -n "$CC_TOOLS" && "$AGENT" == claude-code ]] && echo "claude-code --tools $CC_TOOLS"
+[[ -n "$CC_SYSTEM_PROMPT_FILE" && "$AGENT" == claude-code ]] && echo "claude-code --system-prompt de $CC_SYSTEM_PROMPT_FILE"
 
 # Le um campo de topo do JSON do agente. Usa jq se existir, senao python3.
 jget() { # $1 = campo, $2 = ficheiro
@@ -133,6 +141,8 @@ invoke_agent() {
         local mf=()
         [[ -n "$model" ]] && mf=(--model "$model")
         [[ -n "$CC_EFFORT" ]] && mf+=(--effort "$CC_EFFORT")
+        [[ -n "$CC_TOOLS" ]] && mf+=(--tools "$CC_TOOLS")
+        [[ -n "$CC_SYSTEM_PROMPT_FILE" ]] && mf+=(--system-prompt "$(cat "$CC_SYSTEM_PROMPT_FILE")")
         timeout "$TIMEOUT_S" claude -p "$prompt" "${mf[@]}" \
           --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
       else
@@ -142,6 +152,8 @@ invoke_agent() {
         export ANTHROPIC_API_KEY=""
         local ef=()
         [[ -n "$CC_EFFORT" ]] && ef=(--effort "$CC_EFFORT")
+        [[ -n "$CC_TOOLS" ]] && ef+=(--tools "$CC_TOOLS")
+        [[ -n "$CC_SYSTEM_PROMPT_FILE" ]] && ef+=(--system-prompt "$(cat "$CC_SYSTEM_PROMPT_FILE")")
         timeout "$TIMEOUT_S" claude -p "$prompt" --model "$model" "${ef[@]}" \
           --output-format json --allowedTools "$TOOLS" --permission-mode "$PERM_MODE"
       fi
