@@ -48,6 +48,29 @@ interessa a quem está na sala.
 | Timeout por run | 3000 s (50 min) | confirmado: `TIMEOUT_S="${TIMEOUT_S:-3000}"` em `bench.sh`. Subido de 900s após a Fase 0 — ver nota no topo do documento. |
 | Permissões | idênticas nos dois lados | confirmado: `PERM_MODE="${PERM_MODE:-acceptEdits}"` aplicado igualmente a `side=claude` e a todos os `side` locais em `bench.sh` |
 
+**Identidade exata do modelo local (nota de 2026-09-26).** As tags do Ollama
+mudam de nome e de empacotamento; o que identifica os pesos testados é o
+digest de cada camada do manifesto. O `qwen3.8:latest` usado em todas as
+runs (id da tag local `22130167c4c2`,
+`/usr/share/ollama/.ollama/models/manifests/registry.ollama.ai/library/qwen3.8/latest`):
+
+| Camada | Digest (sha256) | Tamanho |
+|---|---|---|
+| model (GGUF, 27.3B, Q4_K_M) | `f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d` | 16 810 714 464 B |
+| config | `492b2922d38e553cabc2d319345644ed482874fbf5e5c9e4495cbf8e17b0cf5f` | — |
+| projector (visão) | `ac3714bfdddeca31351f2752bf1a63f266f4df87c0b68c895e44945ca704448e` | 931 146 016 B |
+| params | `906ee87bde6cff7bf3c3b1550f55cbbec261e027187fbb9f511f908ffc418334` | 114 B |
+| license | `4c6a8e842ef0d8504549facfb03f1273a8d0022991519bc1888522cc1a5517d1` | 11 345 B |
+
+Verificado contra o registo a 2026-09-26: as tags `qwen3.8:27b` (hoje com
+id `e118e4d12a70` na página do Ollama) e `qwen3.8:27b-mtp-q4_K_M` (id
+`22130167c4c2`) têm **exatamente estas cinco camadas**. Os ids das tags
+diferem só no empacotamento do manifesto; os pesos, os parâmetros e a
+configuração são os mesmos. Para reproduzir, qualquer uma das duas tags
+serve; confirma-se com o digest da camada `model`. As tags derivadas
+(`qwen3.8-t02`, `qwen3.8-pp15`) usam a mesma camada `model` e só mudam os
+parâmetros (`harness/ollama/*.Modelfile`).
+
 ### 2.1 Modelos locais adicionais
 
 `bench.sh` mapeia cada `side` local a uma tag do Ollama (ver `invoke_agent`
