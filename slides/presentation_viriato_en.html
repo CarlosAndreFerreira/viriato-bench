@@ -435,7 +435,7 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
 </section>
 
 <!-- 24 Q&A -->
-<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: no — where it actually reached the model, Claude Code 0/6 vs 0/6 and opencode 1/6 vs 2/6. 'Is it the harness or the model?' → slide 16. 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
+<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: no — where it actually reached the model, Claude Code 0/6 vs 0/6 and opencode 1/6 vs 2/6. 'Is it the harness or the model?' → slide 16. 'What about opencode?' → same weights, v1+v2 clean passes: pi + pi-sol 9/12, opencode 2/6 (at temperature 1), Claude Code 0/6. Caveats: opencode sends temperature 1 explicitly while pi runs at Ollama's unmeasured /v1 default, and opencode ends the session when one turn hits max_tokens — so not a clean harness ranking (RESULTS 3.5). 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
   <div class="kicker">Everything is in the repository</div>
   <h2>Questions — and where to check the answers</h2>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
