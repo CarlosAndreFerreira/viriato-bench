@@ -155,15 +155,20 @@ def main() -> int:
         fail("seeds diferentes produzem a mesma grelha")
 
     # render
-    if hasattr(mod, "render") and grids:
+    # Ate 2026-09-27 os dois casos do else davam "nao expoe render()", mesmo
+    # com render() definido quando todas as seeds rebentavam (RESULTS.md 6.5).
+    # So a mensagem mudou: continua a ser um problema, e o veredito e o mesmo.
+    if not hasattr(mod, "render"):
+        fail("maze.py nao expoe render()")
+    elif not grids:
+        fail("render() nao testado: nenhuma seed gerou grelha")
+    else:
         try:
             out = mod.render(next(iter(grids.values())))
             if not isinstance(out, str) or len(out.splitlines()) != ROWS:
                 fail("render() nao devolve 36 linhas de texto")
         except Exception as exc:  # noqa: BLE001
             fail(f"render() rebentou: {exc!r}")
-    else:
-        fail("maze.py nao expoe render()")
 
     if fails:
         print(f"FAIL ({len(fails)} problemas):")

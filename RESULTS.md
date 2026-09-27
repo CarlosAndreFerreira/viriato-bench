@@ -468,7 +468,7 @@ depende da forma como o Ollama traduz o campo, que não foi confirmada.
 
 A falha a `medium` (v3, run 3) foi um erro de código, não de tempo: o
 `maze.py` usa uma constante que nunca define (`NameError: MAX_CORRIDOR`) nas 4
-seeds. (O verificador também diz "não expõe `render()`", mas isso é um falso positivo: o `render()` existe, na linha 169; o verificador só o testa quando pelo menos uma seed gerou grelha.) A `medium` o Claude ficou 25% mais barato e
+seeds. (O verificador também diz "não expõe `render()`", mas isso é um falso positivo: o `render()` existe, na linha 169; o verificador só o testa quando pelo menos uma seed gerou grelha. Mensagem corrigida a 2026-09-27 para "render() nao testado: nenhuma seed gerou grelha"; os códigos de saída das 13 pastas do v3 e o `make check-reference` ficaram iguais. O `.score` desta run guarda a mensagem antiga.) A `medium` o Claude ficou 25% mais barato e
 ligeiramente mais rápido, com uma falha em 12. 11/12 contra 12/12 não é uma
 diferença significativa (p = 0.5), mas o "12/12" do slide foi medido a `high`
 e deve ser apresentado como tal.
