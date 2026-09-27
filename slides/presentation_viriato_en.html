@@ -164,7 +164,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 7 TASK A1 -->
-<section class="slide" data-time="13:00–15:00" data-anim="a1" data-notes="<b>13:00–15:00.</b> The live-demo task: a scheduler with a planted two-layer bug. Layer 1: add_months builds date(2026, 2, 31) and crashes. The obvious fix — clamp to the last day — makes 5 of 7 tests pass but leaves the drift test failing, because occurrences chain from the previous date: Jan 31 → Feb 28 → Mar 28 → Apr 28. The real fix anchors every occurrence to the start date. Before scoring we restore the original tests and conftest, so an agent that edits the tests fails.">
+<section class="slide" data-time="13:00–15:00" data-anim="a1" data-notes="<b>13:00–15:00.</b> The live-demo task: a scheduler with a planted two-layer bug. Layer 1: add_months builds date(2026, 2, 31) and crashes. The obvious fix — clamp to the last day — makes 6 of 7 tests pass but leaves the drift test failing, because occurrences chain from the previous date: Jan 31 → Feb 28 → Mar 28 → Apr 28. The real fix anchors every occurrence to the start date. Before scoring we restore the original tests and conftest, so an agent that edits the tests fails.">
   <div class="kicker">Task a1 · agentic debugging (the live demo)</div>
   <h2>A recurring-task scheduler with a two-layer bug — 7 pytest tests</h2>
   <div class="card" style="padding:26px 30px">
@@ -178,7 +178,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 8 SCORING -->
-<section class="slide" data-time="15:00–17:00" data-anim="timeline" data-notes="<b>15:00–17:00.</b> Define the three outcomes with real runs. Clean pass: the lean claude-code run finished at 691 s. Late pass: a run that had a correct file at 2162 s but kept iterating until the 3000 s kill — the checker still passes it, so a naive pass@1 counts it. We never cite late passes as wins. Fail: the checker rejects the file, or no file exists. Then: every checker was validated both ways — reference implementations pass, and real broken runs fail with a physical reason.">
+<section class="slide" data-time="15:00–17:00" data-anim="timeline" data-notes="<b>15:00–17:00.</b> Define the three outcomes with real runs. Clean pass: the lean claude-code run finished at 691 s. Late pass: a run that had a correct file at about 2160 s but kept iterating until the 3000 s kill — the checker still passes it, so a naive pass@1 counts it. We never cite late passes as wins. Fail: the checker rejects the file, or no file exists. Then: every checker was validated both ways — reference implementations pass, and real broken runs fail with a physical reason.">
   <div class="kicker">How we score</div>
   <h2>Clean pass, late pass, fail — and why the difference matters</h2>
   <div class="card" style="padding:26px 30px"><canvas id="cvTimeline" width="1380" height="260"></canvas></div>
@@ -225,7 +225,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 11 TEMPERATURE (corrected 2026-09-26, RESULTS.md 6.7) -->
-<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> This slide used to say one Modelfile line, temperature 1.0 to 0.2, unlocked the model. That was wrong, and the way we found out is the point. The two tags on pi and pi-sol really did go 0/5 to 9/12, p = 0.009. But pi talks to Ollama through the OpenAI-compatible endpoint and never sends a temperature, and that endpoint ignores the Modelfile temperature. Proof: a tag with temperature 0 gives 1 distinct answer in 8 on Ollama's native API and 8 in 8 on /v1. So both arms ran with the same sampling: the difference is real, but it is not temperature. What else differed: PI_THINKING (high/off vs medium) and the dates — cause open. The only harness where 0.2 actually reached the model is Claude Code, which uses /v1/messages: 0/6 at 1.0, 0/6 at 0.2 — no effect seen. Lesson: capture the request; a config file is a claim, not a measurement. The retest with the temperature sent explicitly, opencode, K=3 per arm: 1/6 at 0.2 against 2/6 at 1.0, same failure mode in both — no gain.">
+<section class="slide" data-time="22:00–25:00" data-anim="bars" data-notes="<b>22:00–25:00.</b> This slide used to say one Modelfile line, temperature 1.0 to 0.2, unlocked the model. That was wrong, and the way we found out is the point. The two tags on pi and pi-sol really did go 0/5 to 9/12, p = 0.009. But pi talks to Ollama through the OpenAI-compatible endpoint and never sends a temperature, and that endpoint ignores the Modelfile temperature. Proof: a small test tag (minicpm5 2B) with temperature 0 gives 1 distinct answer in 8 on Ollama's native API and 8 in 8 on /v1. Ollama's journal confirms it for the real runs: every pi and pi-sol request, with either tag, was sampled at temperature 1.0, top_p 1.0. So both arms ran with the same sampling: the difference is real, but it is not temperature. What else differed: PI_THINKING (high/off vs medium) and the dates — cause open. The only harness where 0.2 actually reached the model is Claude Code, which uses /v1/messages: with its default request, 0/6 at 1.0 and 0/6 at 0.2 — no effect seen. Lesson: capture the request; a config file is a claim, not a measurement. The retest with the temperature sent explicitly, opencode, K=3 per arm: 1/6 at 0.2 against 2/6 at 1.0, same failure mode in both — no gain.">
   <div class="kicker">Correction · one line in a Modelfile</div>
   <h2><code>temperature 0.2</code> never reached the model</h2>
   <div class="row">
@@ -235,10 +235,10 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
       <div class="small" style="margin-top:16px"><code>qwen3.8-t02</code> (Modelfile 0.2)</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
       <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.009</b> — a real difference between the batches, but <b class="fail">both arms ran with the same sampling</b>. Still different: <code>PI_THINKING</code> (high/off vs medium) and the dates. Cause open.</p></div>
     <div class="col card rv" style="border-color:var(--late)"><h3 class="late">Why: Ollama's <code>/v1</code> drops the Modelfile temperature</h3>
-      <p class="small" style="margin:6px 0 8px">Tag with <code>temperature 0</code>, same prompt 8×, distinct answers:</p>
+      <p class="small" style="margin:6px 0 8px">Test tag (<code>minicpm5:2b</code>) with <code>temperature 0</code>, same prompt 8×, distinct answers:</p>
       <div class="small"><code>/api/chat</code> (native)</div><div class="bar"><i data-w="12.5" style="background:var(--pass)"></i><b class="pass">1/8</b></div>
       <div class="small" style="margin-top:12px"><code>/v1/chat/completions</code> (pi, opencode)</div><div class="bar"><i data-w="100" style="background:var(--fail)"></i><b class="fail">8/8</b></div>
-      <p class="small" style="margin-top:14px">pi sends no <code>temperature</code> (request captured). Where 0.2 <i>did</i> arrive — Claude Code, <code>/v1/messages</code>: <b>0/6</b> at 1.0 vs <b>0/6</b> at 0.2. No effect seen.</p>
+      <p class="small" style="margin-top:14px">pi sends no <code>temperature</code> (request captured), and Ollama's own sampler log shows <b>every</b> pi / pi-sol request with the <code>-t02</code> tag ran at <code>temp 1.000</code>, <code>top_p 1.000</code>. Where 0.2 <i>did</i> arrive — Claude Code defaults, <code>/v1/messages</code>: <b>0/6</b> at 1.0 vs <b>0/6</b> at 0.2.</p>
       <p class="tiny" style="margin-top:10px">Qwen's model card recommends 1.0 for thinking mode anyway. Retest with the temperature sent explicitly (opencode, K=3 per arm): <b>1/6 at 0.2 vs 2/6 at 1.0</b> — no gain.</p></div>
   </div>
   <div class="src rv">RESULTS.md §6.7 · verify/ollama_v1_temperature_probe.py · Ollama 0.33.3</div>
@@ -257,7 +257,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 13 FAST != CORRECT -->
-<section class="slide" data-time="28:00–29:30" data-iframe="1" data-notes="<b>28:00–29:30.</b> The other failure shape: speed without correctness. qwen3-coder (the code-specialised model, temperature 0.2) has no reasoning mode. It wrote index.html in 87 seconds, 2 turns, zero reasoning — and 13 of the 60 sampled states have a ball outside the polygon, worst case 4,607 px away. One run (K=1), so this is an illustration, not a finding about coder models in general.">
+<section class="slide" data-time="28:00–29:30" data-iframe="1" data-notes="<b>28:00–29:30.</b> The other failure shape: speed without correctness. qwen3-coder (the code-specialised model; its -t02 tag also ran at temperature 1.0 on pi, per Ollama's log) has no reasoning mode. It wrote index.html in 87 seconds, 2 turns, zero reasoning — and 13 of the 60 sampled states have a ball outside the polygon, worst case 4,607 px away. One run (K=1), so this is an illustration, not a finding about coder models in general.">
   <div class="kicker">The opposite failure</div>
   <h2>Fast and confident is not correct</h2>
   <div class="row" style="flex:1;min-height:0">
@@ -271,13 +271,13 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 14 HARNESS GAP -->
-<section class="slide" data-time="29:30–31:00" data-anim="bars" data-notes="<b>29:30–31:00.</b> Same model tag, same tasks — only the harness changes. pi and pi-sol: 9/12 clean on v1+v2. Claude Code: 0/6. Fisher p = 0.0045. Caveat from slide 11: sampling was not identical — Claude Code really ran at 0.2, pi at Ollama's /v1 default. pi won without the low temperature, so this strengthens the harness point rather than weakening it. The next three slides are the investigation of why.">
+<section class="slide" data-time="29:30–31:00" data-anim="bars" data-notes="<b>29:30–31:00.</b> Same weights and tag, same tasks, different harness. pi and pi-sol: 9/12 clean on v1+v2. Claude Code: 0/6. Fisher p = 0.0045. Caveat from slide 11: sampling was not identical — Claude Code really ran at 0.2, pi at 1.0 with top_p 1.0 (Ollama's sampler log). pi won without the low temperature, so this strengthens the harness point rather than weakening it — but it is not a one-variable comparison. The next three slides are the investigation of why.">
   <div class="kicker">Same model tag · same tasks · different harness</div>
-  <h2>Change only the harness: 9/12 becomes 0/6</h2>
+  <h2>Same weights, different harness: 9/12 vs 0/6</h2>
   <div class="card rv" style="max-width:1100px">
     <div class="small">pi + pi-sol · qwen3.8-t02 · v1 + v2</div><div class="bar"><i data-w="75" style="background:var(--pass)"></i><b class="pass">9/12</b></div>
     <div class="small" style="margin-top:18px">Claude Code (defaults) · qwen3.8-t02 · v1 + v2</div><div class="bar"><i data-w="0" style="background:var(--fail)"></i><b class="fail">0/6</b></div>
-    <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.0045</b>. Sampling differed (slide 11): Claude Code ran at 0.2, pi at the <code>/v1</code> default. In Claude Code: v1 three empty directories; v2 one late pass, one harness error ("API Error: The response stopped arriving"), one empty directory.</p>
+    <p class="small" style="margin-top:18px">Fisher exact <b>p = 0.0045</b>. Sampling differed (slide 11): Claude Code ran at 0.2, pi at 1.0 (Ollama's sampler log). In Claude Code: v1 three empty directories; v2 one late pass, one harness error ("API Error: The response stopped arriving"), one empty directory.</p>
   </div>
   <div class="row rv" style="margin-top:22px">
     <div class="col card tight"><p class="small"><b>Known result:</b> the agent–computer interface changes performance with the same model — Yang et al., <i>SWE-agent</i>, arXiv:2405.15793.</p></div>
@@ -324,27 +324,27 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 </section>
 
 <!-- 18 ENERGY -->
-<section class="slide" data-time="40:00–42:30" data-anim="power" data-notes="<b>40:00–42:30.</b> Real trace: 132 minutes of the local run on pi, sampled every 2 s by the amdgpu PPT sensor — that is SoC package power, not the wall socket (no RAM, SSD, fans or PSU losses). The model under load pulls about 113–120 W (idle is about 15 W). A bugfix (a1) cost 2.8–3.9 Wh. The maze task: 56.7 and 93.8 Wh for the two passes; the timeout burned 99.3 Wh for nothing. For comparison, stock Qwen in Claude Code needed 16–27 Wh for the same a1 fix — but that series differs in both harness and temperature, so don't attribute it to one cause. There is no comparable energy number for Claude: it runs in the cloud.">
+<section class="slide" data-time="40:00–42:30" data-anim="power" data-notes="<b>40:00–42:30.</b> Real trace: 132 minutes of the local run on pi, sampled every 2 s by the amdgpu PPT sensor — that is SoC package power, not the wall socket (no RAM, SSD, fans or PSU losses). The model under load pulls about 113–120 W (idle is about 16–24 W). A bugfix (a1) cost 2.8–3.9 Wh. The maze task: 56.7 and 93.8 Wh for the two passes; the timeout burned 99.3 Wh for nothing. For comparison, stock Qwen in Claude Code needed 16–27 Wh for the same a1 fix — both series ran at temperature 1.0 (Ollama's sampler log), but the harness, top_p and reasoning settings differ, so don't attribute it to the scaffold alone. There is no comparable energy number for Claude: it runs in the cloud.">
   <div class="kicker">Energy · measured, 2-second samples</div>
   <h2>What a local fix costs in watt-hours</h2>
   <div class="card" style="padding:18px 22px"><canvas id="cvPower" width="1400" height="330"></canvas><div class="tiny">source: power-pi-t02-v3a1-20260925.csv · amdgpu PPT = SoC package power, <b>not wall power</b></div></div>
   <div class="row" style="margin-top:18px">
-    <div class="col card tight rv"><div class="stat">~15 W</div><div class="stat-l">idle SoC · ~113–120 W under inference</div></div>
+    <div class="col card tight rv"><div class="stat">~16–24 W</div><div class="stat-l">idle SoC · ~113–120 W under inference</div></div>
     <div class="col card tight rv"><div class="stat pass">2.8–3.9 Wh</div><div class="stat-l">per a1 fix · pi · qwen3.8-t02 (91–123 s)</div></div>
-    <div class="col card tight rv"><div class="stat">16–27 Wh</div><div class="stat-l">per a1 fix · Claude Code · stock Qwen (different harness; sampling not proven equal)</div></div>
+    <div class="col card tight rv"><div class="stat">16–27 Wh</div><div class="stat-l">per a1 fix · Claude Code · stock Qwen (different harness; both at temperature 1.0)</div></div>
     <div class="col card tight rv"><div class="stat fail">~99 Wh</div><div class="stat-l">per 50-min timeout, zero output</div></div>
   </div>
 </section>
 
 <!-- 19 COST & LATENCY -->
-<section class="slide" data-time="42:30–45:00" data-notes="<b>42:30–45:00.</b> Measured facts first: on a1 the local model on pi matched Claude's wall time (121 s vs 136–138 s medians, K=3). On visual tasks Claude was 2.5–6× faster and more reliable (11–12/12 vs at best 9/12). Then the calculator: this is a scenario, not a result. Plug in YOUR machine price, tariff and task mix. The defaults are our measured per-task numbers; the machine price is an example — replace it. Note what it ignores: failures, retries, your time, the wall-power overhead beyond the SoC.">
+<section class="slide" data-time="42:30–45:00" data-notes="<b>42:30–45:00.</b> Measured facts first: on a1 the local model on pi matched Claude's wall time (121 s vs 136–138 s medians, K=3). On visual tasks Claude was about 2–9× faster (per-task medians) and more reliable (11–12/12 vs at best 9/12). Then the calculator: this is a scenario, not a result. Plug in YOUR machine price, tariff and task mix. The defaults are our measured per-task numbers; the machine price is an example — replace it. Note what it ignores: failures, retries, your time, the wall-power overhead beyond the SoC.">
   <div class="kicker">Latency is measured · cost is a scenario</div>
   <h2>When does a local box pay for itself? <span class="muted small">(your numbers)</span></h2>
   <div class="row">
     <div class="col card"><h3>Measured</h3><ul class="clean small">
       <li>a1: local on pi <b>121 s</b> median vs Claude <b>136–138 s</b> — a tie at K = 3</li>
-      <li>Visual tasks: Claude <b>309–486 s</b> vs local <b>1079–2843 s</b></li>
-      <li>Reliability: Claude 11–12/12 · local best 9/12 (pi, v1+v2) · a1 3/3</li>
+      <li>Visual tasks: Claude <b>309–486 s</b> vs local <b>741–2843 s</b></li>
+      <li>Reliability: Claude 11–12/12 · local best 9/12 (pi + pi-sol, v1+v2) · a1 3/3</li>
       <li>Claude API-equivalent: <b>≈ $1.0</b> per a1 fix, <b>$1.5–1.9</b> per visual task (effort medium)</li>
       <li>Local: <b>≈ 3.4 Wh</b> SoC per a1 fix</li></ul></div>
     <div class="col card"><h3>Scenario calculator</h3>
@@ -396,7 +396,7 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
 </section>
 
 <!-- 22 CONCLUSIONS -->
-<section class="slide" data-time="51:00–54:00" data-notes="<b>51:00–54:00.</b> Read the left column as claims with their evidence, then the right column: what we cannot claim. Finish with the one-liner: on this box, a 27B model can do real agentic work — if you control its sampling and keep the harness request small — but it is not a frontier replacement, and every claim here is scoped to four tasks, K=3, one model family.">
+<section class="slide" data-time="51:00–54:00" data-notes="<b>51:00–54:00.</b> Read the left column as claims with their evidence, then the right column: what we cannot claim. Finish with the one-liner: on this box, a 27B model can do real agentic work — if the harness keeps its request small — but it is not a frontier replacement, and every claim here is scoped to four tasks, K=3, one model family.">
   <div class="kicker">What the data supports — and what it doesn't</div>
   <h2>Conclusions, with their scope</h2>
   <div class="row">
@@ -408,7 +408,7 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
       <li class="rv">Claude Code's <b>default request</b>, not its loop, blocked the local model: 1/9 → 3/3 with a lean request (p = 0.018).</li>
       <li class="rv">On a1 the local model on pi matched Claude's wall time (121 vs 136–138 s) for ~3–4 Wh of SoC energy.</li></ol></div>
     <div class="col card"><h3 class="fail">Not supported</h3><ul class="clean small">
-      <li>"Local ≈ frontier" — Claude is 2.5–6× faster on visual tasks and more reliable.</li>
+      <li>"Local ≈ frontier" — Claude is about 2–9× faster on visual tasks and more reliable.</li>
       <li>Any ranking of pi / pi-sol / prime-agent (p ≥ 0.23).</li>
       <li>SoL-Pi savings on local models — it never triggered.</li>
       <li>Energy vs cloud (no cloud measurement); any payback figure (scenario only).</li>
@@ -435,14 +435,14 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
 </section>
 
 <!-- 24 Q&A -->
-<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: no — where it actually reached the model, Claude Code 0/6 vs 0/6 and opencode 1/6 vs 2/6. 'Is it the harness or the model?' → slide 16. 'What about opencode?' → same weights, v1+v2 clean passes: pi + pi-sol 9/12, opencode 2/6 (at temperature 1), Claude Code 0/6. Caveats: opencode sends temperature 1 explicitly while pi runs at Ollama's unmeasured /v1 default, and opencode ends the session when one turn hits max_tokens — so not a clean harness ranking (RESULTS 3.5). 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
+<section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: no — where it actually reached the model, Claude Code 0/6 vs 0/6 and opencode 1/6 vs 2/6. 'Is it the harness or the model?' → slide 16. 'What about opencode?' → same weights, v1+v2 clean passes: pi + pi-sol 9/12, opencode 2/6 (at temperature 1), Claude Code 0/6. Caveats: both at temperature 1.0, but top_p differs (opencode 0.95, pi 1.0 from Ollama's /v1 default), pi sends reasoning_effort and opencode does not, and opencode ends the session when one turn hits max_tokens — so not a clean harness ranking (RESULTS 3.5). 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
   <div class="kicker">Everything is in the repository</div>
   <h2>Questions — and where to check the answers</h2>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
     <a class="card rv" href="../PROTOCOL.md" style="text-decoration:none;color:inherit"><h3>PROTOCOL.md</h3><p class="small muted">Pre-registration and dated deviation notes</p></a>
     <a class="card rv" href="../RESULTS.md" style="text-decoration:none;color:inherit"><h3>RESULTS.md</h3><p class="small muted">Every number here, with its proof and p-value</p></a>
     <a class="card rv" href="../results.csv" style="text-decoration:none;color:inherit"><h3>results.csv</h3><p class="small muted">One row per run, append-only, batch-tagged</p></a>
-    <a class="card rv" href="../tasks/" style="text-decoration:none;color:inherit"><h3>tasks/*/verify.py</h3><p class="small muted">The verifiers and the verbatim prompts</p></a>
+    <a class="card rv" href="../tasks/" style="text-decoration:none;color:inherit"><h3>tasks/*/</h3><p class="small muted">Verifiers (verify.py, score.sh) and the verbatim prompts</p></a>
     <a class="card rv" href="VERIFICACAO_FACTOS.md" style="text-decoration:none;color:inherit"><h3>Fact-check</h3><p class="small muted">Claims checked against sources, errors listed</p></a>
     <a class="card rv" href="../logs/" style="text-decoration:none;color:inherit"><h3>logs/</h3><p class="small muted">Raw agent event streams, verifier output, power CSVs</p></a>
   </div>
@@ -559,7 +559,7 @@ a1(){
 timeline(){
   const c=document.getElementById('cvTimeline'),g=c.getContext('2d'),W=c.width,H=c.height,x0=260,x1=W-40,T=3000;
   const X=s=>x0+(x1-x0)*s/T;
-  const runs=[['clean pass',691,691,'#3ddc97','finished 691 s'],['late pass',3000,2162,'#ffb547','correct file at 2162 s, killed at 3000 s'],['fail',3000,null,'#ff5c7a','no file written']];
+  const runs=[['clean pass',691,691,'#3ddc97','finished 691 s'],['late pass',3000,2162,'#ffb547','correct file at ~2160 s, killed at 3000 s'],['fail',3000,null,'#ff5c7a','no file written']];
   let k=0;
   function draw(){g.fillStyle='#131826';g.fillRect(0,0,W,H);
     g.strokeStyle='#ff5c7a';g.setLineDash([6,6]);g.beginPath();g.moveTo(X(T),10);g.lineTo(X(T),H-30);g.stroke();g.setLineDash([]);
@@ -657,7 +657,7 @@ function calc(){
   const out=document.getElementById('cOut');
   if(perDay<=0||price<=0){out.innerHTML='<b class="fail">No payback</b> with these inputs.';return}
   const days=price/perDay;
-  out.innerHTML=`<div class="small">saves ≈ <b>${perDay.toFixed(2)}</b> per day · energy ≈ ${(localEnergy*1000).toFixed(2)} cents/task</div><div class="stat" style="margin-top:8px">${days<3650?Math.ceil(days)+' days':'> 10 years'}</div><div class="stat-l">to break even — <b>scenario, not a measurement</b></div>`;
+  out.innerHTML=`<div class="small">saves ≈ <b>${perDay.toFixed(2)}</b> per day · energy ≈ ${(localEnergy*100).toFixed(3)} cents/task</div><div class="stat" style="margin-top:8px">${days<3650?Math.ceil(days)+' days':'> 10 years'}</div><div class="stat-l">to break even — <b>scenario, not a measurement</b></div>`;
 }
 ['cPrice','cN','cCloud','cWh','cKwh','cOk'].forEach(id=>document.getElementById(id).addEventListener('input',calc));calc();
 

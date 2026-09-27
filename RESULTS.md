@@ -468,7 +468,7 @@ depende da forma como o Ollama traduz o campo, que não foi confirmada.
 
 A falha a `medium` (v3, run 3) foi um erro de código, não de tempo: o
 `maze.py` usa uma constante que nunca define (`NameError: MAX_CORRIDOR`) nas 4
-seeds, e não expõe `render()`. A `medium` o Claude ficou 25% mais barato e
+seeds. (O verificador também diz "não expõe `render()`", mas isso é um falso positivo: o `render()` existe, na linha 169; o verificador só o testa quando pelo menos uma seed gerou grelha.) A `medium` o Claude ficou 25% mais barato e
 ligeiramente mais rápido, com uma falha em 12. 11/12 contra 12/12 não é uma
 diferença significativa (p = 0.5), mas o "12/12" do slide foi medido a `high`
 e deve ser apresentado como tal.
@@ -525,6 +525,26 @@ Recapturado a 2026-09-26 com `verify/fake_openai_server.py`, com a config de
 runs o Ollama já era o 0.33.3 (binário de 2026-09-03; o journal de 21 a 26 de
 setembro só regista essa versão) e o pi e o prime-agent já estavam instalados
 na versão atual (2026-08-16 e 2026-08-12).
+
+**Confirmado nas runs reais pelo log do próprio Ollama** (2026-09-27). O
+`journalctl -u ollama` regista os parâmetros do sampler em cada pedido
+(`sampler params: … top_k, top_p, … temp`). Cruzando os 692 registos desde 21 de
+setembro com a janela de cada run do `results.csv`:
+
+| Harness / tag | Pedidos | `temp` aplicada | `top_p` |
+|---|---|---|---|
+| claude-code, `qwen3.8` | 33 | 1.000 | 0.950 |
+| claude-code, `qwen3.8-t02` (4 batches) | 68 | **0.200** | 0.950 |
+| pi / pi-sol / prime-agent, `qwen3.8` | 64 | 1.000 | **1.000** |
+| pi / pi-sol / prime-agent, `qwen3.8-t02` (5 batches) | 257 | **1.000** | **1.000** |
+| pi, `qwen3-coder-t02` | 2 | **1.000** | 1.000 |
+| opencode, pedidos do agente | 55 | 1.0 / 0.2, como pedido | 0.950 |
+| opencode, pedido do título (1 por run) | 13 | 0.5 | 1.0 |
+
+O "default do `/v1`" deixa de ser uma incógnita: é **temperatura 1.0 e
+`top_p` 1.0**, sempre. O `qwen3-coder-t02` também nunca correu a 0.2 (nem ao
+0.7 do modelo base). O opencode faz, como o claude-code, um pedido secundário
+de título por run (sem ferramentas, a 0.5) que ocupa o único slot do Ollama.
 
 **O que isto invalida:**
 
