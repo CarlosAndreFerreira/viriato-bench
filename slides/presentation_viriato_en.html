@@ -75,7 +75,7 @@ label.fld{display:flex;justify-content:space-between;align-items:center;gap:14px
 
 <!-- 1 TITLE -->
 <section class="slide" data-time="00:00–01:00" data-notes="<b>00:00–01:00.</b> Introduce yourself. One sentence: this is a pre-registered benchmark on one mini-PC, four tasks, every number traceable to a CSV line and a raw log. Promise: by the end they will know exactly where a local 27B model breaks, and why — and one of those reasons is not the model.">
-  <div class="kicker">Viriato Bench · pre-registered · Sept 2026</div>
+  <div class="kicker">Viriato Bench · pre-registered · Sept 2026 · <span style="text-transform:none;letter-spacing:.02em">github.com/CarlosAndreFerreira/viriato-bench</span></div>
   <h1 style="font-size:66px;max-width:1300px">Local vs Frontier:<br>what actually breaks when a 27B model does agentic engineering on a mini-PC</h1>
   <p class="muted" style="margin-top:26px;font-size:26px;max-width:1200px">Qwen3.8-27B on an AMD Ryzen AI MAX+ 395 (128 GB unified memory) against Claude Opus 5 — same tasks, automated verifiers, K = 3 per cell.</p>
   <div style="margin-top:auto" class="row">
@@ -440,13 +440,14 @@ PI_CODING_AGENT_DIR=~/viriato-bench/harness/pi \
 <section class="slide" data-time="55:00–60:00" data-notes="<b>55:00–60:00.</b> Q&A. Likely questions and where the answer is: 'So does temperature 0.2 help?' → slide 11: no — where it actually reached the model, Claude Code 0/6 vs 0/6 and opencode 1/6 vs 2/6. 'Is it the harness or the model?' → slide 16. 'What about opencode?' → same weights, v1+v2 clean passes: pi + pi-sol 9/12, opencode 2/6 (at temperature 1), Claude Code 0/6. Caveats: both at temperature 1.0, but top_p differs (opencode 0.95, pi 1.0 from Ollama's /v1 default), pi sends reasoning_effort and opencode does not, and opencode ends the session when one turn hits max_tokens — so not a clean harness ranking (RESULTS 3.5). 'What about temperature 0?' → not tested; vendor warns against greedy. 'Energy per task vs cloud?' → not measurable from outside the cloud. 'Why K=3?' → budget; all p-values shown; K≥5 is next.">
   <div class="kicker">Everything is in the repository</div>
   <h2>Questions — and where to check the answers</h2>
+  <p class="mono" style="font-size:30px;margin:-8px 0 26px"><a href="https://github.com/CarlosAndreFerreira/viriato-bench" style="color:var(--accent);text-decoration:none">github.com/CarlosAndreFerreira/viriato-bench</a></p>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
-    <a class="card rv" href="../PROTOCOL.md" style="text-decoration:none;color:inherit"><h3>PROTOCOL.md</h3><p class="small muted">Pre-registration and dated deviation notes</p></a>
-    <a class="card rv" href="../RESULTS.md" style="text-decoration:none;color:inherit"><h3>RESULTS.md</h3><p class="small muted">Every number here, with its proof and p-value</p></a>
-    <a class="card rv" href="../results.csv" style="text-decoration:none;color:inherit"><h3>results.csv</h3><p class="small muted">One row per run, append-only, batch-tagged</p></a>
-    <a class="card rv" href="../tasks/" style="text-decoration:none;color:inherit"><h3>tasks/*/</h3><p class="small muted">Verifiers (verify.py, score.sh) and the verbatim prompts</p></a>
-    <a class="card rv" href="VERIFICACAO_FACTOS.md" style="text-decoration:none;color:inherit"><h3>Fact-check</h3><p class="small muted">Claims checked against sources, errors listed</p></a>
-    <a class="card rv" href="../logs/" style="text-decoration:none;color:inherit"><h3>logs/</h3><p class="small muted">Raw agent event streams, verifier output, power CSVs</p></a>
+    <a class="card rv" href="https://github.com/CarlosAndreFerreira/viriato-bench/blob/master/PROTOCOL.md" style="text-decoration:none;color:inherit"><h3>PROTOCOL.md</h3><p class="small muted">Pre-registration and dated deviation notes</p></a>
+    <a class="card rv" href="https://github.com/CarlosAndreFerreira/viriato-bench/blob/master/RESULTS.md" style="text-decoration:none;color:inherit"><h3>RESULTS.md</h3><p class="small muted">Every number here, with its proof and p-value</p></a>
+    <a class="card rv" href="https://github.com/CarlosAndreFerreira/viriato-bench/blob/master/results.csv" style="text-decoration:none;color:inherit"><h3>results.csv</h3><p class="small muted">One row per run, append-only, batch-tagged</p></a>
+    <a class="card rv" href="https://github.com/CarlosAndreFerreira/viriato-bench/tree/master/tasks" style="text-decoration:none;color:inherit"><h3>tasks/*/</h3><p class="small muted">Verifiers (verify.py, score.sh) and the verbatim prompts</p></a>
+    <a class="card rv" href="https://github.com/CarlosAndreFerreira/viriato-bench/blob/master/slides/VERIFICACAO_FACTOS.md" style="text-decoration:none;color:inherit"><h3>Fact-check</h3><p class="small muted">Claims checked against sources, errors listed</p></a>
+    <a class="card rv" href="https://github.com/CarlosAndreFerreira/viriato-bench/tree/master/logs" style="text-decoration:none;color:inherit"><h3>logs/</h3><p class="small muted">Raw agent event streams, verifier output, power CSVs</p></a>
   </div>
 </section>
 
