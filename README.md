@@ -1,4 +1,42 @@
-# Lusitano Bench
+# Viriato Bench
+
+[![CI](https://github.com/CarlosAndreFerreira/viriato-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosAndreFerreira/viriato-bench/actions/workflows/ci.yml)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+**How much agentic coding work can move from a frontier API model to a local model on a mini-PC — at what latency, what cost, and where does it break?**
+
+A pre-registered benchmark comparing a local **Qwen3.8-27B** (AMD Strix Halo, Ollama) against **Claude** *in the same agent harness*, with correctness checked by code rather than by eye. The question is not "is the 27B as good as Claude", it's which fraction of the work migrates and under which conditions.
+
+### Headline results (K=3, see [`RESULTS.md`](RESULTS.md) for evidence and caveats)
+
+| Task | Claude (claude-code) | Qwen3.8-27B, temp 1 (claude-code) | Qwen3.8-27B (pi harness) |
+|---|---|---|---|
+| a1-bugfix — two-layer agentic debugging | 3/3 · 138 s | 3/3 · 571 s | 3/3 · 121 s |
+| v1-polygon — custom physics & collisions | 3/3 · 429 s | 0/3 (timeout) | 2/3 · 1280 s |
+| v2-solar — orbital mechanics under a pretty visual | 3/3 · 458 s | 0/3 (timeout) | 2/3 · 2087 s |
+| v3-viriato — maze generator from a hard-constraint SRS | 3/3 · 486 s | 0/3 (timeout) | 2/3 · 2843 s |
+
+- On the visual/SRS tasks in claude-code: **9/9 vs 0/9, Fisher p = 0.00002**. The local model's failure mode was endless reasoning with no tool calls — empty output folders after 50 minutes.
+- In lighter harnesses the local model recovers to **9/12 clean passes** on v1+v2. The harness changes how much the model reasons as much as the model does.
+- A local run that times out costs ~**99 Wh** at the SoC; a passing bugfix run costs 16–27 Wh.
+
+### What makes it rigorous
+
+- **Pre-registration** — [`PROTOCOL.md`](PROTOCOL.md) was fixed before the first run and isn't edited to fit results.
+- **Clean pass@1** — a run killed by the timeout while its files happened to be correct is reported separately; only `timeout_hit=0` passes are cited.
+- **Statistics** — Wilson 95% intervals and one-sided Fisher exact tests; RESULTS states explicitly what the numbers *don't* support.
+- **Checkers validated both ways** — reference solutions pass every checker (`make check-reference`, run in CI) and known-bad outputs fail them. In a1, tests are restored from the fixture before scoring, so an agent that edits them still fails.
+- **Measurement errors documented, not hidden** — e.g. Ollama's `/v1/chat/completions` silently ignores the Modelfile temperature, a `PI_THINKING=off` flag that never disabled reasoning, environment drift between batches (RESULTS §6).
+
+Raw logs for every run are in `logs/`; `python3 score.py` regenerates the tables from `results.csv`. An English slide deck is in [`slides/presentation_viriato_en.html`](slides/presentation_viriato_en.html) (`make slides`).
+
+> The detailed documentation below is in Portuguese.
+
+---
+
+## Português
+
+### Lusitano Bench
 
 Comparação de modelos locais (Strix Halo) contra Claude, **na mesma harness**,
 com correção verificada por código e estética votada em separado. Modelo
